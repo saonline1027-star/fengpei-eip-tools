@@ -106,6 +106,14 @@
     </div>
     <div class="card-body" id="body-clockout">
       <p style="font-size:14px; color:#555; margin-bottom:16px;">自動填寫外出登記：外出 08:30、返回當下時間，上下班皆勾「不進公司」。</p>
+      <div class="form-group">
+        <label>目的地</label>
+        <input id="clockout-destination" type="text" placeholder="例：辦公室" value="辦公室">
+      </div>
+      <div class="form-group">
+        <label>說明</label>
+        <input id="clockout-remark" type="text" placeholder="例：work">
+      </div>
       <button class="btn-primary" id="btn-clockout" onclick="confirmClockOut()">立刻打卡下班</button>
     </div>
   </div>
@@ -258,12 +266,18 @@ function closeConfirm() {
 
 async function doClockOut() {
   closeConfirm();
+  const destination = document.getElementById('clockout-destination').value.trim() || '辦公室';
+  const remark      = document.getElementById('clockout-remark').value.trim();
+  save('clockout_destination', destination);
+  save('clockout_remark', remark);
   setLoading('btn-clockout', true, '立刻打卡下班');
   showStatus('running', '⏳ 已觸發，雲端執行中（約 2~3 分鐘）...');
   try {
     await triggerWorkflow('clock-out.yml', {
-      username: load('eip_username'),
-      password: load('eip_password'),
+      username:    load('eip_username'),
+      password:    load('eip_password'),
+      destination: destination,
+      remark:      remark,
     });
     showStatus('success', '✅ 打卡下班已送出！約 2~3 分鐘後完成，可至 NuEIP 確認。');
   } catch (e) {
@@ -304,6 +318,12 @@ async function triggerApplyOT() {
 const t = new Date();
 document.getElementById('ot-date').value =
   `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+
+// 讀取上次填的打卡目的地和說明
+const savedDest = load('clockout_destination');
+if (savedDest) document.getElementById('clockout-destination').value = savedDest;
+const savedRemark = load('clockout_remark');
+if (savedRemark) document.getElementById('clockout-remark').value = savedRemark;
 
 checkConfigured();
 </script>

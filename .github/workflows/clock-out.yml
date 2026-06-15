@@ -9,6 +9,14 @@ on:
       password:
         description: '密碼'
         required: true
+      destination:
+        description: '目的地'
+        required: false
+        default: '辦公室'
+      remark:
+        description: '說明'
+        required: false
+        default: ''
 
 jobs:
   run:
@@ -47,4 +55,6 @@ jobs:
           EIP_COMPANY: retech
           EIP_USERNAME: ${{ inputs.username }}
           EIP_PASSWORD: ${{ inputs.password }}
+          EIP_DESTINATION: ${{ inputs.destination }}
+          EIP_REMARK: ${{ inputs.remark }}
         run: node scripts/clock-out.js

@@ -1,9 +1,11 @@
 const { chromium } = require('playwright');
 
 async function main() {
-  const company  = process.env.EIP_COMPANY  || 'retech';
-  const username = process.env.EIP_USERNAME;
-  const password = process.env.EIP_PASSWORD;
+  const company     = process.env.EIP_COMPANY     || 'retech';
+  const username    = process.env.EIP_USERNAME;
+  const password    = process.env.EIP_PASSWORD;
+  const destination = process.env.EIP_DESTINATION || '辦公室';
+  const remark      = process.env.EIP_REMARK      || '';
 
   if (!username || !password) {
     console.error('❌ 缺少 EIP_USERNAME 或 EIP_PASSWORD');
@@ -19,10 +21,13 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   const page    = await browser.newPage();
 
+  // 固定視窗大小，避免 NuEIP RWD 造成元素隱藏
+  await page.setViewportSize({ width: 1280, height: 800 });
+
   try {
     console.log('[1/5] 登入中...');
     await page.goto('https://portal.nueip.com/login');
-    await page.waitForSelector('input[placeholder="公司代碼"]');
+    await page.waitForSelector('input[placeholder="公司代碼"]', { timeout: 15000 });
     await page.fill('input[placeholder="公司代碼"]', company);
     await page.fill('input[placeholder="員工編號"]', username);
     await page.fill('input[placeholder="密碼"]', password);
@@ -30,24 +35,25 @@ async function main() {
     await page.waitForURL('**/home', { timeout: 15000 });
     console.log('    登入成功');
 
+    // 直接導覽到外出登記頁面，跳過選單點擊
     console.log('[2/5] 前往外出登記作業...');
-    await page.click('a[href="https://cloud.nueip.com/eform/eform"].button-grid__button--wrapper');
-    await page.waitForURL('**/eform/eform');
-    await page.click('a[href="/apply_work"].sub-menu-btn');
-    await page.waitForURL('**/apply_work');
-    await page.click('a[href="/inout_record"].nu-font-primary');
-    await page.waitForURL('**/inout_record');
-    await page.waitForLoadState('networkidle');
+    await page.goto('https://cloud.nueip.com/inout_record');
+    await page.waitForLoadState('networkidle', { timeout: 20000 });
+    await page.waitForTimeout(2000);
 
+    // 關閉促銷 popup（如果有）
     try {
       await page.evaluate(() => document.querySelector('#btnCancel')?.click());
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(800);
     } catch {}
 
     console.log('[3/5] 開啟新增表單...');
-    await page.waitForSelector('input.addBtn', { timeout: 10000 });
+    await page.waitForSelector('input.addBtn', { timeout: 15000 });
     await page.click('input.addBtn');
-    await page.waitForSelector('#insert_member', { timeout: 10000 });
+    await page.waitForTimeout(2000);
+
+    // 等 modal 出現後點加入
+    await page.waitForSelector('#insert_member', { state: 'visible', timeout: 15000 });
     await page.click('#insert_member');
     await page.waitForTimeout(1500);
 
@@ -58,8 +64,8 @@ async function main() {
     await page.selectOption('select[name="inhr"]', hour);
     await page.selectOption('select[name="inmin"]', min);
     await page.click('#instatus');
-    await page.fill('#destination', '辦公室');
-    await page.locator('textarea[name="remark"]:visible').fill('work');
+    await page.fill('#destination', destination);
+    await page.locator('textarea[name="remark"]:visible').fill(remark);
 
     console.log('[5/5] 送出...');
     await page.locator('button:visible', { hasText: '確定' }).last().click();
@@ -68,6 +74,11 @@ async function main() {
     console.log('\n✅ 打卡下班完成！');
 
   } catch (err) {
+    // 失敗時截圖存 artifact 方便除錯
+    try {
+      await page.screenshot({ path: 'error-screenshot.png', fullPage: true });
+      console.error('截圖已儲存：error-screenshot.png');
+    } catch {}
     console.error('\n❌ 發生錯誤：', err.message);
     process.exitCode = 1;
   } finally {
