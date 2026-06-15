@@ -114,7 +114,12 @@
         <label>說明</label>
         <input id="clockout-remark" type="text" placeholder="例：work">
       </div>
-      <button class="btn-primary" id="btn-clockout" onclick="confirmClockOut()">立刻打卡下班</button>
+      <div class="form-group">
+        <label>預約打卡時間（不填 = 立即執行）</label>
+        <input id="clockout-scheduled" type="time">
+        <p class="hint">設定後送出，雲端會等到該時間再打卡，手機可以關掉。</p>
+      </div>
+      <button class="btn-primary" id="btn-clockout" onclick="confirmClockOut()">打卡下班</button>
     </div>
   </div>
 
@@ -254,9 +259,14 @@ async function triggerWorkflow(workflow, inputs) {
 
 function confirmClockOut() {
   if (!isConfigured()) { showStatus('error', '請先完成設定'); return; }
-  const now = new Date();
-  document.getElementById('confirm-msg').textContent =
-    `返回時間將記錄為 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const scheduled = document.getElementById('clockout-scheduled').value;
+  if (scheduled) {
+    document.getElementById('confirm-msg').textContent = `將在台北時間 ${scheduled} 自動打卡，手機可以關掉。`;
+  } else {
+    const now = new Date();
+    document.getElementById('confirm-msg').textContent =
+      `返回時間將記錄為 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  }
   document.getElementById('confirm-overlay').classList.add('open');
 }
 
@@ -268,22 +278,30 @@ async function doClockOut() {
   closeConfirm();
   const destination = document.getElementById('clockout-destination').value.trim() || '辦公室';
   const remark      = document.getElementById('clockout-remark').value.trim();
+  const scheduled   = document.getElementById('clockout-scheduled').value;
   save('clockout_destination', destination);
   save('clockout_remark', remark);
-  setLoading('btn-clockout', true, '立刻打卡下班');
-  showStatus('running', '⏳ 已觸發，雲端執行中（約 2~3 分鐘）...');
+  setLoading('btn-clockout', true, '打卡下班');
+  const statusMsg = scheduled
+    ? `⏳ 已排程！雲端將於台北時間 ${scheduled} 自動打卡。`
+    : '⏳ 已觸發，雲端執行中（約 30~40 秒）...';
+  showStatus('running', statusMsg);
   try {
     await triggerWorkflow('clock-out.yml', {
-      username:    load('eip_username'),
-      password:    load('eip_password'),
-      destination: destination,
-      remark:      remark,
+      username:        load('eip_username'),
+      password:        load('eip_password'),
+      destination:     destination,
+      remark:          remark,
+      scheduled_time:  scheduled,
     });
-    showStatus('success', '✅ 打卡下班已送出！約 2~3 分鐘後完成，可至 NuEIP 確認。');
+    const okMsg = scheduled
+      ? `✅ 排程完成！台北時間 ${scheduled} 會自動打卡，可關掉此頁面。`
+      : '✅ 打卡下班已送出！約 30~40 秒後完成，可至 NuEIP 確認。';
+    showStatus('success', okMsg);
   } catch (e) {
     showStatus('error', `❌ ${e.message}`);
   } finally {
-    setLoading('btn-clockout', false, '立刻打卡下班');
+    setLoading('btn-clockout', false, '打卡下班');
   }
 }
 
