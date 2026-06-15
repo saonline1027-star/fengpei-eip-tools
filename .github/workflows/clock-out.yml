@@ -1,0 +1,50 @@
+name: 打卡下班
+
+on:
+  workflow_dispatch:
+    inputs:
+      username:
+        description: '員工編號'
+        required: true
+      password:
+        description: '密碼'
+        required: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('package.json') }}
+
+      - name: Cache Playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}
+
+      - name: Mask password
+        run: echo "::add-mask::${{ inputs.password }}"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright browser
+        run: npx playwright install chromium --with-deps
+
+      - name: 執行打卡下班
+        env:
+          EIP_COMPANY: retech
+          EIP_USERNAME: ${{ inputs.username }}
+          EIP_PASSWORD: ${{ inputs.password }}
+        run: node scripts/clock-out.js

@@ -1,0 +1,77 @@
+name: 申請加班
+
+on:
+  workflow_dispatch:
+    inputs:
+      username:
+        description: '員工編號'
+        required: true
+      password:
+        description: '密碼'
+        required: true
+      nueip_sn:
+        description: 'NuEIP SN（不確定可空白）'
+        required: false
+        default: ''
+      ot_date:
+        description: '加班日期（2026-06-15）'
+        required: true
+      ot_start:
+        description: '開始時間（17:30）'
+        required: true
+      ot_end:
+        description: '結束時間（20:00）'
+        required: true
+      ot_type:
+        description: '類型：1=平日換加班費 2=平日換補休 3=假日換加班費 4=假日換補休'
+        required: true
+        default: '1'
+      ot_reason:
+        description: '說明（可空白）'
+        required: false
+        default: ''
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('package.json') }}
+
+      - name: Cache Playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}
+
+      - name: Mask password
+        run: echo "::add-mask::${{ inputs.password }}"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright browser
+        run: npx playwright install chromium --with-deps
+
+      - name: 執行申請加班
+        env:
+          EIP_COMPANY: retech
+          EIP_USERNAME: ${{ inputs.username }}
+          EIP_PASSWORD: ${{ inputs.password }}
+          EIP_NUEIP_SN: ${{ inputs.nueip_sn }}
+          OT_DATE: ${{ inputs.ot_date }}
+          OT_START: ${{ inputs.ot_start }}
+          OT_END: ${{ inputs.ot_end }}
+          OT_TYPE: ${{ inputs.ot_type }}
+          OT_REASON: ${{ inputs.ot_reason }}
+        run: node scripts/apply-ot.js

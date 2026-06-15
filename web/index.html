@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>鋒霈 EIP 工具</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, 'Microsoft JhengHei', sans-serif;
+    background: #f0f2f5;
+    color: #1a1a1a;
+    min-height: 100vh;
+  }
+
+  header {
+    background: #1e3a5f;
+    color: white;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  header h1 { font-size: 18px; font-weight: 600; }
+
+  #settings-toggle {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .container { max-width: 480px; margin: 0 auto; padding: 16px; }
+
+  /* 狀態列 */
+  #status-bar {
+    background: white;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    border-left: 4px solid #ccc;
+    font-size: 14px;
+    display: none;
+    word-break: break-word;
+  }
+  #status-bar.running { border-color: #f59e0b; }
+  #status-bar.success { border-color: #10b981; }
+  #status-bar.error   { border-color: #ef4444; }
+
+  /* 功能卡片 */
+  .card {
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  .card-header {
+    padding: 16px 20px;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .card-header .icon { font-size: 22px; }
+  .card-header .arrow { margin-left: auto; color: #888; font-size: 12px; transition: transform 0.2s; }
+  .card-header.open .arrow { transform: rotate(180deg); }
+
+  .card-body { padding: 0 20px 20px; display: none; }
+  .card-body.open { display: block; }
+
+  /* 大按鈕（打卡） */
+  .btn-primary {
+    width: 100%;
+    padding: 14px;
+    background: #1e3a5f;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, opacity 0.2s;
+  }
+  .btn-primary:hover { background: #163050; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-secondary {
+    width: 100%;
+    padding: 12px;
+    background: #e8f0f8;
+    color: #1e3a5f;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 12px;
+  }
+  .btn-secondary:hover { background: #d4e4f5; }
+  .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* 表單元素 */
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 13px; color: #555; margin-bottom: 5px; font-weight: 500; }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px solid #ddd;
+    border-radius: 8px;
+    font-size: 15px;
+    font-family: inherit;
+    background: #fafafa;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus {
+    outline: none;
+    border-color: #1e3a5f;
+    background: white;
+  }
+
+  .form-row { display: flex; gap: 10px; }
+  .form-row .form-group { flex: 1; }
+
+  .divider { height: 1px; background: #eee; margin: 16px 0; }
+
+  /* 設定面板 */
+  #settings-panel {
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    display: none;
+  }
+  #settings-panel.open { display: block; }
+  #settings-panel .card-body { display: block; }
+
+  .settings-section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 10px;
+  }
+
+  .hint {
+    font-size: 12px;
+    color: #888;
+    margin-top: 4px;
+  }
+
+  .save-btn {
+    width: 100%;
+    padding: 12px;
+    background: #10b981;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+
+  .tag {
+    display: inline-block;
+    background: #e8f0f8;
+    color: #1e3a5f;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  .not-configured {
+    text-align: center;
+    padding: 24px 16px;
+    color: #888;
+    font-size: 14px;
+  }
+  .not-configured .icon { font-size: 36px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏢 鋒霈 EIP 工具</h1>
+  <button id="settings-toggle" onclick="toggleSettings()">⚙ 設定</button>
+</header>
+
+<div class="container">
+
+  <!-- 狀態列 -->
+  <div id="status-bar"></div>
+
+  <!-- 設定面板 -->
+  <div id="settings-panel">
+    <div class="card-header" style="cursor:default; padding-bottom: 4px;">
+      <span>⚙️ 設定</span>
+    </div>
+    <div class="card-body">
+
+      <p class="settings-section-title">GitHub 設定</p>
+      <div class="form-group">
+        <label>GitHub 帳號（你的 username）</label>
+        <input id="gh-owner" type="text" placeholder="例：chang-heng-123">
+      </div>
+      <div class="form-group">
+        <label>Repository 名稱</label>
+        <input id="gh-repo" type="text" placeholder="例：fengpei-eip-tools">
+      </div>
+      <div class="form-group">
+        <label>Personal Access Token（PAT）</label>
+        <input id="gh-token" type="password" placeholder="ghp_xxxxxxxxxxxx">
+        <p class="hint">需要 workflow 權限。存在你的裝置，不會上傳。</p>
+      </div>
+
+      <div class="divider"></div>
+
+      <p class="settings-section-title">我的 EIP 帳號</p>
+      <div class="form-group">
+        <label>員工編號</label>
+        <input id="eip-username" type="text" placeholder="例：0156">
+      </div>
+      <div class="form-group">
+        <label>密碼</label>
+        <input id="eip-password" type="password" placeholder="NuEIP 密碼">
+      </div>
+      <div class="form-group">
+        <label>NuEIP SN（申請加班用，不確定可留空）</label>
+        <input id="eip-nueip-sn" type="text" placeholder="選填">
+      </div>
+
+      <button class="save-btn" onclick="saveSettings()">✅ 儲存設定</button>
+    </div>
+  </div>
+
+  <!-- 未設定提示 -->
+  <div id="not-configured" class="card" style="display:none;">
+    <div class="not-configured">
+      <div class="icon">⚙️</div>
+      <p>請先點右上角<strong>「設定」</strong>填寫帳號資料</p>
+    </div>
+  </div>
+
+  <!-- 打卡下班 -->
+  <div class="card" id="card-clockout">
+    <div class="card-header" onclick="toggleCard('clockout')">
+      <span class="icon">🕐</span>
+      <span>打卡下班</span>
+      <span class="tag">外出登記</span>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="card-body" id="body-clockout">
+      <p style="font-size:14px; color:#555; margin-bottom:16px;">
+        自動填寫外出登記：外出 08:30、返回當下時間，上下班皆勾「不進公司」。
+      </p>
+      <button class="btn-primary" id="btn-clockout" onclick="triggerClockOut()">
+        立刻打卡下班
+      </button>
+    </div>
+  </div>
+
+  <!-- 申請加班 -->
+  <div class="card" id="card-applyot">
+    <div class="card-header" onclick="toggleCard('applyot')">
+      <span class="icon">📋</span>
+      <span>申請加班</span>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="card-body" id="body-applyot">
+      <div class="form-group">
+        <label>加班日期</label>
+        <input id="ot-date" type="date">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>開始時間</label>
+          <input id="ot-start" type="time" value="17:30">
+        </div>
+        <div class="form-group">
+          <label>結束時間</label>
+          <input id="ot-end" type="time" value="20:00">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>加班類型</label>
+        <select id="ot-type">
+          <option value="1">平日加班換加班費</option>
+          <option value="2">平日加班換補休</option>
+          <option value="3">休息日加班換加班費</option>
+          <option value="4">休息日加班換補休</option>
+          <option value="5">國定假日換加班費</option>
+          <option value="6">國定假日加班換補休</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>說明（可空白）</label>
+        <input id="ot-reason" type="text" placeholder="例：趕工、主管交辦">
+      </div>
+      <button class="btn-secondary" id="btn-applyot" onclick="triggerApplyOT()">
+        送出加班申請
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ────── LocalStorage helpers ──────
+const KEYS = {
+  owner:    'gh_owner',
+  repo:     'gh_repo',
+  token:    'gh_token',
+  username: 'eip_username',
+  password: 'eip_password',
+  nueipSn:  'eip_nueip_sn',
+};
+
+function load(key) { return localStorage.getItem(key) || ''; }
+function save(key, val) { localStorage.setItem(key, val); }
+
+function loadSettings() {
+  document.getElementById('gh-owner').value     = load(KEYS.owner);
+  document.getElementById('gh-repo').value      = load(KEYS.repo);
+  document.getElementById('gh-token').value     = load(KEYS.token);
+  document.getElementById('eip-username').value = load(KEYS.username);
+  document.getElementById('eip-password').value = load(KEYS.password);
+  document.getElementById('eip-nueip-sn').value = load(KEYS.nueipSn);
+}
+
+function saveSettings() {
+  save(KEYS.owner,    document.getElementById('gh-owner').value.trim());
+  save(KEYS.repo,     document.getElementById('gh-repo').value.trim());
+  save(KEYS.token,    document.getElementById('gh-token').value.trim());
+  save(KEYS.username, document.getElementById('eip-username').value.trim());
+  save(KEYS.password, document.getElementById('eip-password').value);
+  save(KEYS.nueipSn,  document.getElementById('eip-nueip-sn').value.trim());
+  document.getElementById('settings-panel').classList.remove('open');
+  showStatus('success', '✅ 設定已儲存');
+  checkConfigured();
+}
+
+function isConfigured() {
+  return load(KEYS.owner) && load(KEYS.repo) && load(KEYS.token) && load(KEYS.username) && load(KEYS.password);
+}
+
+function checkConfigured() {
+  const configured = isConfigured();
+  document.getElementById('not-configured').style.display = configured ? 'none' : '';
+  document.getElementById('card-clockout').style.display  = configured ? '' : 'none';
+  document.getElementById('card-applyot').style.display   = configured ? '' : 'none';
+}
+
+// ────── UI helpers ──────
+function toggleSettings() {
+  const panel = document.getElementById('settings-panel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) loadSettings();
+}
+
+function toggleCard(id) {
+  const header = document.querySelector(`#card-${id} .card-header`);
+  const body   = document.getElementById(`body-${id}`);
+  header.classList.toggle('open');
+  body.classList.toggle('open');
+}
+
+function showStatus(type, msg) {
+  const bar = document.getElementById('status-bar');
+  bar.className = type;
+  bar.textContent = msg;
+  bar.style.display = 'block';
+  if (type === 'success' || type === 'error') {
+    setTimeout(() => { bar.style.display = 'none'; }, 6000);
+  }
+}
+
+function setLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  btn.disabled = loading;
+  if (loading) btn.dataset.orig = btn.textContent;
+  btn.textContent = loading ? '⏳ 執行中...' : btn.dataset.orig;
+}
+
+// ────── GitHub Actions 觸發 ──────
+async function triggerWorkflow(workflow, inputs) {
+  const owner = load(KEYS.owner);
+  const repo  = load(KEYS.repo);
+  const token = load(KEYS.token);
+
+  const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow}/dispatches`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/vnd.github+json',
+      'Content-Type': 'application/json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+    body: JSON.stringify({ ref: 'main', inputs }),
+  });
+
+  if (res.status === 204) return { ok: true };
+  if (res.status === 401) throw new Error('PAT 無效或過期，請重新設定');
+  if (res.status === 404) throw new Error('找不到 Repository 或 workflow，請確認設定');
+  if (res.status === 422) throw new Error('Workflow 觸發失敗，請確認 branch 為 main');
+  const body = await res.text();
+  throw new Error(`錯誤 ${res.status}：${body}`);
+}
+
+// ────── 打卡下班 ──────
+async function triggerClockOut() {
+  if (!isConfigured()) { showStatus('error', '請先完成設定'); return; }
+
+  setLoading('btn-clockout', true);
+  showStatus('running', '⏳ 觸發中，請稍候...');
+
+  try {
+    await triggerWorkflow('clock-out.yml', {
+      username: load(KEYS.username),
+      password: load(KEYS.password),
+    });
+    showStatus('success', '✅ 打卡下班已觸發！GitHub Actions 執行中（約 2~3 分鐘完成）');
+  } catch (e) {
+    showStatus('error', `❌ ${e.message}`);
+  } finally {
+    setLoading('btn-clockout', false);
+  }
+}
+
+// ────── 申請加班 ──────
+async function triggerApplyOT() {
+  if (!isConfigured()) { showStatus('error', '請先完成設定'); return; }
+
+  const otDate = document.getElementById('ot-date').value;
+  const otStart = document.getElementById('ot-start').value;
+  const otEnd   = document.getElementById('ot-end').value;
+
+  if (!otDate || !otStart || !otEnd) {
+    showStatus('error', '請填寫加班日期與時間');
+    return;
+  }
+
+  setLoading('btn-applyot', true);
+  showStatus('running', '⏳ 觸發中，請稍候...');
+
+  try {
+    await triggerWorkflow('apply-ot.yml', {
+      username:  load(KEYS.username),
+      password:  load(KEYS.password),
+      nueip_sn:  load(KEYS.nueipSn),
+      ot_date:   otDate,
+      ot_start:  otStart,
+      ot_end:    otEnd,
+      ot_type:   document.getElementById('ot-type').value,
+      ot_reason: document.getElementById('ot-reason').value,
+    });
+    showStatus('success', `✅ 加班申請已觸發！${otDate} ${otStart}~${otEnd}，GitHub Actions 執行中`);
+  } catch (e) {
+    showStatus('error', `❌ ${e.message}`);
+  } finally {
+    setLoading('btn-applyot', false);
+  }
+}
+
+// ────── 初始化 ──────
+// 加班日期預設今天
+const today = new Date();
+const yyyy = today.getFullYear();
+const mm = String(today.getMonth() + 1).padStart(2, '0');
+const dd = String(today.getDate()).padStart(2, '0');
+document.getElementById('ot-date').value = `${yyyy}-${mm}-${dd}`;
+
+checkConfigured();
+</script>
+</body>
+</html>
