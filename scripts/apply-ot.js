@@ -45,6 +45,7 @@ async function main() {
 
   const browser = await chromium.launch({ headless: true });
   const page    = await browser.newPage();
+  await page.setViewportSize({ width: 1280, height: 800 });
 
   try {
     console.log('[1/3] 登入中...');
@@ -75,7 +76,8 @@ async function main() {
         console.log('    ⚠ 無法選取 TLayer，跳過（可能已自動選取）');
       }
     }
-    await page.click('#insert_member');
+    await page.waitForSelector('#insert_member', { state: 'attached', timeout: 10000 });
+    await page.evaluate(() => document.querySelector('#insert_member').click());
     await page.waitForTimeout(600);
 
     console.log('[3/3] 填寫表單...');
