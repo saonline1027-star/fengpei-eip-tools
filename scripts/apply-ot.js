@@ -112,6 +112,7 @@ async function main() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             date: otDate, start: otStart, end: otEnd,
+            empId: username,
             secret: process.env.GSHEET_SECRET || '',
           }),
         });
