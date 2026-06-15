@@ -17,37 +17,17 @@ on:
         description: '說明'
         required: false
         default: ''
-      scheduled_time:
-        description: '預定打卡時間（台北時間 HH:MM，空白=立即執行）'
-        required: false
-        default: ''
-
 jobs:
   run:
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.60.0-jammy
-    timeout-minutes: 480
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
       - name: Mask password
         run: echo "::add-mask::${{ inputs.password }}"
-
-      - name: 等待預定時間
-        if: ${{ inputs.scheduled_time != '' }}
-        env:
-          TARGET_TIME: ${{ inputs.scheduled_time }}
-        run: |
-          TARGET=$(TZ=Asia/Taipei date -d "today $TARGET_TIME" +%s)
-          NOW=$(date +%s)
-          DELAY=$((TARGET - NOW))
-          if [ $DELAY -gt 0 ]; then
-            echo "預定台北時間 $TARGET_TIME，等待 ${DELAY} 秒..."
-            sleep $DELAY
-          else
-            echo "預定時間已過，立即執行"
-          fi
 
       - name: Install dependencies
         run: npm install --omit=dev
