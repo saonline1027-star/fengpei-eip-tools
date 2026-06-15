@@ -63,38 +63,36 @@ async function main() {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
 
-    // 用 JS 點「申請」按鈕，避免 headless 下找不到
-    await page.evaluate(() => {
-      const btn = [...document.querySelectorAll('button')].find(b => b.textContent.trim().includes('申請'));
-      if (btn) btn.click();
-    });
-    await page.waitForTimeout(2000);
-
-    // 截圖：看 modal 有沒有開
+    // 用 Playwright 原生 force click，確保滑鼠事件完整觸發
+    await page.locator('button').filter({ hasText: /申請/ }).first().click({ force: true });
+    await page.waitForTimeout(2500);
     await page.screenshot({ path: 'debug-modal.png', fullPage: true });
 
-    await page.waitForSelector('#myModal', { timeout: 8000 });
+    await page.waitForSelector('#myModal', { state: 'visible', timeout: 10000 });
     await page.selectOption('#myModal select[name="o_type"]', '1');
-    await page.waitForTimeout(500);
 
-    // 選 TLayer（必選才會出現加入按鈕）；有 SN 用指定，否則選第一個
+    // 等 TLayer 非同步載入完成
     try {
+      await page.waitForFunction(
+        () => (document.querySelector('#myModal select[name="TLayer"]')?.options?.length ?? 0) > 1,
+        { timeout: 6000 }
+      );
       const opts = await page.evaluate(() => {
         const sel = document.querySelector('#myModal select[name="TLayer"]');
-        if (!sel) return [];
         return Array.from(sel.options).map(o => o.value).filter(v => v);
       });
-      if (opts.length > 0) {
-        const target = (nueipSn && opts.includes(nueipSn)) ? nueipSn : opts[0];
-        await page.selectOption('#myModal select[name="TLayer"]', target);
-        console.log(`    TLayer 已選：${target}`);
-        await page.waitForTimeout(500);
-      } else {
-        console.log('    ⚠ 找不到 TLayer 選項');
-      }
-    } catch (e) {
-      console.log(`    ⚠ TLayer：${e.message}`);
+      const target = (nueipSn && opts.includes(nueipSn)) ? nueipSn : opts[0];
+      await page.selectOption('#myModal select[name="TLayer"]', target);
+      console.log(`    TLayer 已選：${target}`);
+      await page.waitForTimeout(500);
+    } catch {
+      console.log('    ⚠ TLayer 無選項，跳過');
     }
+
+    // 截圖看 #insert_member 狀態
+    await page.screenshot({ path: 'debug-before-insert.png', fullPage: true });
+    const hasInsert = await page.evaluate(() => !!document.querySelector('#insert_member'));
+    console.log(`    #insert_member 存在於 DOM：${hasInsert}`);
 
     await page.waitForSelector('#insert_member', { state: 'attached', timeout: 10000 });
     await page.evaluate(() => document.querySelector('#insert_member').click());
