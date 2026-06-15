@@ -44,8 +44,11 @@ async function main() {
   console.log(`日期：${otDate}  時間：${otStart} ~ ${otEnd}  類型：${typeInfo.label}`);
 
   const browser = await chromium.launch({ headless: true });
-  const page    = await browser.newPage();
-  await page.setViewportSize({ width: 1280, height: 800 });
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    viewport: { width: 1280, height: 800 },
+  });
+  const page = await context.newPage();
 
   try {
     console.log('[1/3] 登入中...');
@@ -63,26 +66,45 @@ async function main() {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
 
-    // 普通 click（不用 force），確保完整觸發 modal 的 JS 事件
+    // 普通 click，確保完整觸發 modal 的 JS 事件
     await page.click('button:has-text("申請")');
     await page.waitForSelector('#myModal', { state: 'visible', timeout: 10000 });
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(2000);
+
+    // ===== 印出 modal 結構供除錯 =====
+    const modalInfo = await page.evaluate(() => {
+      const m = document.querySelector('#myModal');
+      if (!m) return '找不到 #myModal';
+      const selects = [...m.querySelectorAll('select')].map(s =>
+        `select[name="${s.name}"] options: ${s.options.length} → [${[...s.options].map(o=>o.value).join(',')}]`
+      );
+      const buttons = [...m.querySelectorAll('button')].map(b =>
+        `button#${b.id||'(no-id)'} "${b.textContent.trim().substring(0,20)}" hidden=${b.offsetParent===null}`
+      );
+      return [...selects, ...buttons].join('\n');
+    });
+    console.log('=== Modal 結構 ===');
+    console.log(modalInfo);
+    console.log('==================');
 
     await page.selectOption('#myModal select[name="o_type"]', '1');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(800);
 
-    // 選 TLayer（必填自己的 NuEIP SN，選完 #insert_member 才會出現）
     if (!nueipSn) {
       throw new Error('缺少 NuEIP SN，請至設定填入（你的 SN 是 189418）');
     }
-    await page.waitForFunction(
-      () => (document.querySelector('#myModal select[name="TLayer"]')?.options?.length ?? 0) > 1,
-      null,
-      { timeout: 8000 }
-    );
+
+    // 印出 o_type 選完後的 TLayer 狀態
+    const tlayerInfo = await page.evaluate(() => {
+      const sel = document.querySelector('#myModal select[name="TLayer"]');
+      if (!sel) return 'TLayer 不存在';
+      return `TLayer options: ${sel.options.length} → [${[...sel.options].map(o=>o.value+':'+o.text).join(', ')}]`;
+    });
+    console.log(tlayerInfo);
+
     await page.selectOption('#myModal select[name="TLayer"]', nueipSn);
     console.log(`    TLayer 已選：${nueipSn}`);
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(800);
 
     await page.waitForSelector('#insert_member', { state: 'attached', timeout: 8000 });
     await page.evaluate(() => document.querySelector('#insert_member').click());
@@ -124,6 +146,7 @@ async function main() {
     console.error('\n❌ 發生錯誤：', err.message);
     process.exitCode = 1;
   } finally {
+    await context.close();
     await browser.close();
   }
 }
