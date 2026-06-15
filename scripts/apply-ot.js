@@ -61,21 +61,42 @@ async function main() {
     console.log('[2/3] 前往加班申請...');
     await page.goto('https://cloud.nueip.com/personal_overtime_application');
     await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
 
-    await page.click('button:has-text("申請")');
-    await page.waitForSelector('#myModal', { timeout: 5000 });
-    await page.waitForTimeout(600);
+    // 用 JS 點「申請」按鈕，避免 headless 下找不到
+    await page.waitForSelector('button', { timeout: 10000 });
+    await page.evaluate(() => {
+      const btn = [...document.querySelectorAll('button')].find(b => b.textContent.trim().includes('申請'));
+      if (btn) btn.click();
+    });
+    await page.waitForTimeout(2000);
 
+    // 截圖：看 modal 有沒有開
+    await page.screenshot({ path: 'debug-modal.png', fullPage: true });
+
+    await page.waitForSelector('#myModal', { timeout: 8000 });
     await page.selectOption('#myModal select[name="o_type"]', '1');
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
 
-    if (nueipSn) {
-      try {
-        await page.selectOption('#myModal select[name="TLayer"]', nueipSn);
-      } catch {
-        console.log('    ⚠ 無法選取 TLayer，跳過（可能已自動選取）');
+    // 選 TLayer（必選才會出現加入按鈕）；有 SN 用指定，否則選第一個
+    try {
+      const opts = await page.evaluate(() => {
+        const sel = document.querySelector('#myModal select[name="TLayer"]');
+        if (!sel) return [];
+        return Array.from(sel.options).map(o => o.value).filter(v => v);
+      });
+      if (opts.length > 0) {
+        const target = (nueipSn && opts.includes(nueipSn)) ? nueipSn : opts[0];
+        await page.selectOption('#myModal select[name="TLayer"]', target);
+        console.log(`    TLayer 已選：${target}`);
+        await page.waitForTimeout(500);
+      } else {
+        console.log('    ⚠ 找不到 TLayer 選項');
       }
+    } catch (e) {
+      console.log(`    ⚠ TLayer：${e.message}`);
     }
+
     await page.waitForSelector('#insert_member', { state: 'attached', timeout: 10000 });
     await page.evaluate(() => document.querySelector('#insert_member').click());
     await page.waitForTimeout(600);
