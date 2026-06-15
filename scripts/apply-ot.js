@@ -77,6 +77,7 @@ async function main() {
     }
     await page.waitForFunction(
       () => (document.querySelector('#myModal select[name="TLayer"]')?.options?.length ?? 0) > 1,
+      null,
       { timeout: 8000 }
     );
     await page.selectOption('#myModal select[name="TLayer"]', nueipSn);
