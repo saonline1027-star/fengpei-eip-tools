@@ -64,7 +64,6 @@ async function main() {
     await page.waitForTimeout(1000);
 
     // 用 JS 點「申請」按鈕，避免 headless 下找不到
-    await page.waitForSelector('button', { timeout: 10000 });
     await page.evaluate(() => {
       const btn = [...document.querySelectorAll('button')].find(b => b.textContent.trim().includes('申請'));
       if (btn) btn.click();
