@@ -21,7 +21,6 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   const page    = await browser.newPage();
 
-  // 固定視窗大小，避免 NuEIP RWD 造成元素隱藏
   await page.setViewportSize({ width: 1280, height: 800 });
 
   try {
@@ -35,27 +34,25 @@ async function main() {
     await page.waitForURL('**/home', { timeout: 15000 });
     console.log('    登入成功');
 
-    // 直接導覽到外出登記頁面，跳過選單點擊
     console.log('[2/5] 前往外出登記作業...');
     await page.goto('https://cloud.nueip.com/inout_record');
     await page.waitForLoadState('networkidle', { timeout: 20000 });
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
 
-    // 關閉促銷 popup（如果有）
     try {
       await page.evaluate(() => document.querySelector('#btnCancel')?.click());
-      await page.waitForTimeout(800);
+      await page.waitForTimeout(300);
     } catch {}
 
     console.log('[3/5] 開啟新增表單...');
     await page.waitForSelector('input.addBtn', { timeout: 15000 });
     await page.click('input.addBtn');
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(2000);
 
     // 按鈕存在但 hidden，用 JS 直接觸發，繞過可見性限制
     await page.waitForSelector('#insert_member', { state: 'attached', timeout: 15000 });
     await page.evaluate(() => document.querySelector('#insert_member').click());
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(1000);
 
     console.log('[4/5] 填寫表單...');
     await page.selectOption('select[name="outhr"]', '08');
@@ -69,12 +66,11 @@ async function main() {
 
     console.log('[5/5] 送出...');
     await page.locator('button:visible', { hasText: '確定' }).last().click();
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(2000);
 
     console.log('\n✅ 打卡下班完成！');
 
   } catch (err) {
-    // 失敗時截圖存 artifact 方便除錯
     try {
       await page.screenshot({ path: 'error-screenshot.png', fullPage: true });
       console.error('截圖已儲存：error-screenshot.png');

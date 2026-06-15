@@ -21,34 +21,17 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    container:
+      image: mcr.microsoft.com/playwright:v1.49.0-jammy
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-npm-${{ hashFiles('package.json') }}
-
-      - name: Cache Playwright
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}
 
       - name: Mask password
         run: echo "::add-mask::${{ inputs.password }}"
 
       - name: Install dependencies
-        run: npm install
-
-      - name: Install Playwright browser
-        run: npx playwright install chromium --with-deps
+        run: npm install --omit=dev
 
       - name: 執行打卡下班
         env:
@@ -57,4 +40,5 @@ jobs:
           EIP_PASSWORD: ${{ inputs.password }}
           EIP_DESTINATION: ${{ inputs.destination }}
           EIP_REMARK: ${{ inputs.remark }}
+          PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
         run: node scripts/clock-out.js
