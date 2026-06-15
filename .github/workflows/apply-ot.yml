@@ -58,4 +58,6 @@ jobs:
           OT_TYPE: ${{ inputs.ot_type }}
           OT_REASON: ${{ inputs.ot_reason }}
           PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+          GSHEET_WEBHOOK_URL: ${{ secrets.GSHEET_WEBHOOK_URL }}
+          GSHEET_SECRET: ${{ secrets.GSHEET_SECRET }}
         run: node scripts/apply-ot.js

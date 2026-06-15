@@ -100,6 +100,29 @@ async function main() {
 
     console.log('\n✅ 加班申請送出完成！');
 
+    // 更新 Google Sheets
+    const webhookUrl = process.env.GSHEET_WEBHOOK_URL;
+    if (webhookUrl) {
+      const [sh, sm] = otStart.split(':').map(Number);
+      const [eh, em] = otEnd.split(':').map(Number);
+      const hours = (eh * 60 + em - sh * 60 - sm) / 60;
+      try {
+        const r = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: otDate, start: otStart, end: otEnd,
+            secret: process.env.GSHEET_SECRET || '',
+          }),
+        });
+        const result = await r.json();
+        if (result.ok) console.log(`    ✅ Google Sheets 已更新：${hours}H`);
+        else console.log(`    ⚠ Google Sheets 失敗：${result.error}`);
+      } catch (e) {
+        console.log(`    ⚠ Google Sheets 呼叫失敗：${e.message}`);
+      }
+    }
+
   } catch (err) {
     console.error('\n❌ 發生錯誤：', err.message);
     process.exitCode = 1;
