@@ -50,11 +50,11 @@ async function main() {
     console.log('[3/5] 開啟新增表單...');
     await page.waitForSelector('input.addBtn', { timeout: 15000 });
     await page.click('input.addBtn');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
 
-    // 等 modal 出現後點加入
-    await page.waitForSelector('#insert_member', { state: 'visible', timeout: 15000 });
-    await page.click('#insert_member');
+    // 按鈕存在但 hidden，用 JS 直接觸發，繞過可見性限制
+    await page.waitForSelector('#insert_member', { state: 'attached', timeout: 15000 });
+    await page.evaluate(() => document.querySelector('#insert_member').click());
     await page.waitForTimeout(1500);
 
     console.log('[4/5] 填寫表單...');
