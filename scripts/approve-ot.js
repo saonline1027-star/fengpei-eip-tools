@@ -2,11 +2,6 @@ const { chromium } = require('playwright');
 
 const SHEET_ID = '1rhyBuDczqggPN5obDZTDJGeVSlcHp_suT9yS0776RKk';
 
-// 每月新增一筆：'YYYY.MM-加班申請': 'GID'
-const KNOWN_GIDS = {
-  '2026.06-加班申請': '119281570',
-};
-
 function parseHM(str) {
   const m = (str || '').match(/(\d{1,2}):(\d{2})$/);
   return m ? +m[1] * 60 + +m[2] : 0;
@@ -31,15 +26,16 @@ function parseCSV(text) {
   });
 }
 
-async function fetchSheetCSV(page, gid) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
+async function fetchSheetCSV(page, sheetName) {
+  // 用 sheet 名稱直接抓，不需要 GID，換月自動適用
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
   const text = await page.evaluate(async (u) => {
     try {
       const r = await fetch(u);
       return r.ok ? await r.text() : '';
     } catch { return ''; }
   }, url);
-  if (!text || text.startsWith('<')) return null;
+  if (!text || text.startsWith('<') || text.startsWith('google')) return null;
   return parseCSV(text);
 }
 
@@ -152,15 +148,8 @@ async function main() {
       }
       const [, yr, mo, dy] = dm.map(Number);
       const sheetName = `${yr}.${String(mo).padStart(2,'0')}-加班申請`;
-      const gid = KNOWN_GIDS[sheetName];
 
-      if (!gid) {
-        console.log(`    → ⏸ 先不簽（找不到試算表 GID：${sheetName}）`);
-        skipItems.push({ ...item, reason: `GID 未設定（${sheetName}）` });
-        continue;
-      }
-
-      const csv = await fetchSheetCSV(page, gid);
+      const csv = await fetchSheetCSV(page, sheetName);
       if (!csv) {
         console.log(`    → ⏸ 先不簽（試算表無法存取）`);
         skipItems.push({ ...item, reason: '試算表無法存取' });
