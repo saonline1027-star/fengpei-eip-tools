@@ -31,7 +31,10 @@ async function main() {
     await page.fill('input[placeholder="員工編號"]', username);
     await page.fill('input[placeholder="密碼"]', password);
     await page.click('button.login-button');
-    await page.waitForURL('**/home', { timeout: 15000 });
+    await page.waitForURL('**/home', { timeout: 30000 }).catch(async () => {
+      const url = page.url();
+      throw new Error(`登入失敗，停在 ${url}（帳密錯誤或 NuEIP 無回應）`);
+    });
     console.log('    登入成功');
 
     console.log('[2/3] 前往外出簽核...');
