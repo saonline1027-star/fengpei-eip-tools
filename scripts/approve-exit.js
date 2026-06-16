@@ -67,7 +67,9 @@ async function main() {
     process.exit(1);
   }
 
-  console.log('\n=== EIP 外出簽核 ===\n');
+  const now = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+  console.log('\n=== EIP 外出簽核 ===');
+  console.log(`執行者：員工 ${username}　時間：${now}\n`);
 
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
@@ -110,8 +112,13 @@ async function main() {
           const t = c.innerText.trim();
           return /\d{4}-\d{2}-\d{2}/.test(t) && /\d{2}:\d{2}:\d{2}/.test(t);
         });
-        // 員工姓名：找非空、非日期、非數字的格子
-        const nameCell = texts.find(t => t && !/\d{4}-\d{2}-\d{2}/.test(t) && !/^\d+$/.test(t) && t.length > 0 && t.length < 10);
+        // 員工姓名：排除空值、純數字、日期格式，取最長符合的（中文姓名通常2~4字）
+        const nameCell = texts.find(t =>
+          t && t.length >= 2 && t.length <= 6 &&
+          !/\d{4}-\d{2}-\d{2}/.test(t) &&
+          !/^\d+$/.test(t) &&
+          /[一-鿿]/.test(t)
+        );
         return {
           index,
           name:       nameCell || '',
@@ -139,7 +146,7 @@ async function main() {
       const diffHrs = (retDT - outDT) / 3600000;
       const dateStr = row.outTime.slice(0, 10); // YYYY-MM-DD
 
-      console.log(`  ▸ ${row.name || '?'} | 外出:${row.outTime.slice(-5)}  返回:${row.returnTime.slice(-5)}  工時:${diffHrs.toFixed(1)}h`);
+      console.log(`  ▸ [${dateStr}] ${row.name || '(未知)'} | 外出:${row.outTime.slice(-5)}  返回:${row.returnTime.slice(-5)}  工時:${diffHrs.toFixed(1)}h`);
 
       // 條件①：外出 <= 09:00
       if (outMin > 9 * 60) {
