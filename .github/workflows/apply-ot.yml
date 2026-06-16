@@ -42,7 +42,7 @@ jobs:
       image: mcr.microsoft.com/playwright:v1.60.0-jammy
     timeout-minutes: 130
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Mask password
         run: echo "::add-mask::${{ inputs.password }}"
