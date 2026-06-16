@@ -49,7 +49,9 @@ async function main() {
     process.exit(1);
   }
 
-  console.log('\n=== EIP 加班簽核 ===\n');
+  const now = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+  console.log('\n=== EIP 加班簽核 ===');
+  console.log(`執行者：員工 ${username}　時間：${now}\n`);
 
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
