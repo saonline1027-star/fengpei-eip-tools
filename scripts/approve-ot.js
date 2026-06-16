@@ -1,5 +1,12 @@
 const { chromium } = require('playwright');
 
+const SHEET_ID = '1rhyBuDczqggPN5obDZTDJGeVSlcHp_suT9yS0776RKk';
+
+// 每月新增一筆：'YYYY.MM-加班申請': 'GID'
+const KNOWN_GIDS = {
+  '2026.06-加班申請': '119281570',
+};
+
 function parseHM(str) {
   const m = (str || '').match(/(\d{1,2}):(\d{2})$/);
   return m ? +m[1] * 60 + +m[2] : 0;
@@ -8,6 +15,32 @@ function parseHM(str) {
 function fmtHours(min1, min2) {
   const diff = (min2 - min1) / 60;
   return diff > 0 ? diff : 0;
+}
+
+function parseCSV(text) {
+  return text.split('\n').map(line => {
+    const cells = []; let inQ = false, cur = '';
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { if (inQ && line[i+1] === '"') { cur += '"'; i++; } else inQ = !inQ; }
+      else if (c === ',' && !inQ) { cells.push(cur.trim()); cur = ''; }
+      else cur += c;
+    }
+    cells.push(cur.trim());
+    return cells;
+  });
+}
+
+async function fetchSheetCSV(page, gid) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
+  const text = await page.evaluate(async (u) => {
+    try {
+      const r = await fetch(u);
+      return r.ok ? await r.text() : '';
+    } catch { return ''; }
+  }, url);
+  if (!text || text.startsWith('<')) return null;
+  return parseCSV(text);
 }
 
 async function main() {
@@ -73,8 +106,7 @@ async function main() {
       };
     });
 
-    console.log(`    找到 ${items.length} 筆`);
-
+    console.log(`    找到 ${items.length} 筆\n`);
     console.log('[3/3] 判斷並執行簽核...\n');
 
     const passItems = [];
@@ -84,31 +116,112 @@ async function main() {
     for (const item of items) {
       const startMin   = parseHM(item.startStr);
       const endMin     = parseHM(item.endStr);
-      const hours      = fmtHours(startMin, endMin);
+      const nueipHours = fmtHours(startMin, endMin);
 
-      console.log(`  ▸ ${item.name} | ${item.date} | ${item.startStr.slice(-5)}~${item.endStr.slice(-5)} (${hours}H) | ${item.typeRaw}`);
+      console.log(`  ▸ ${item.name} | ${item.date} | ${item.startStr.slice(-5)}~${item.endStr.slice(-5)} (${nueipHours}H) | ${item.typeRaw}`);
 
+      // 規則 1：開始時間 >= 17:30
       if (startMin < 17 * 60 + 30) {
-        const reason = `開始時間 ${item.startStr.slice(-5)} 未達 17:30`;
-        console.log(`    → 先不簽（${reason}）`);
+        const reason = `開始 ${item.startStr.slice(-5)} 未達 17:30`;
+        console.log(`    → ⏸ 先不簽（${reason}）`);
         skipItems.push({ ...item, reason });
         continue;
       }
+
+      // 規則 2：平日
       if (item.isWeekend) {
-        const reason = `週末，請人工確認`;
-        console.log(`    → 先不簽（${reason}）`);
-        skipItems.push({ ...item, reason });
+        console.log(`    → ⏸ 先不簽（週末，請人工確認）`);
+        skipItems.push({ ...item, reason: '週末' });
         continue;
       }
+
+      // 規則 3：類型
       if (!/平日加班換加班費|平日加班換補休/.test(item.typeRaw)) {
         const reason = `類型錯誤（${item.typeRaw}）`;
-        console.log(`    → 不通過（${reason}）`);
+        console.log(`    → ❌ 不通過（${reason}）`);
         failItems.push({ ...item, reason });
         continue;
       }
 
-      console.log(`    → 通過`);
-      passItems.push(item);
+      // 規則 4：比對 Google Sheets
+      const dm = item.date.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (!dm) {
+        console.log(`    → ⏸ 先不簽（日期解析失敗）`);
+        skipItems.push({ ...item, reason: '日期解析失敗' });
+        continue;
+      }
+      const [, yr, mo, dy] = dm.map(Number);
+      const sheetName = `${yr}.${String(mo).padStart(2,'0')}-加班申請`;
+      const gid = KNOWN_GIDS[sheetName];
+
+      if (!gid) {
+        console.log(`    → ⏸ 先不簽（找不到試算表 GID：${sheetName}）`);
+        skipItems.push({ ...item, reason: `GID 未設定（${sheetName}）` });
+        continue;
+      }
+
+      const csv = await fetchSheetCSV(page, gid);
+      if (!csv) {
+        console.log(`    → ⏸ 先不簽（試算表無法存取）`);
+        skipItems.push({ ...item, reason: '試算表無法存取' });
+        continue;
+      }
+
+      // 找日期列：找「1」緊接著「2」的那列
+      let dateRowIdx = -1;
+      for (let i = 0; i < csv.length; i++) {
+        const row = csv[i];
+        const idx1 = row.indexOf('1');
+        if (idx1 >= 0 && row[idx1 + 1] === '2') {
+          dateRowIdx = i;
+          break;
+        }
+      }
+
+      if (dateRowIdx < 0) {
+        console.log(`    → ⏸ 先不簽（找不到日期列）`);
+        skipItems.push({ ...item, reason: '試算表格式異常' });
+        continue;
+      }
+
+      const dateRow = csv[dateRowIdx];
+      const colIdx  = dateRow.indexOf(String(dy));
+
+      if (colIdx < 0) {
+        console.log(`    → ⏸ 先不簽（找不到第 ${dy} 日欄位）`);
+        skipItems.push({ ...item, reason: `找不到第 ${dy} 日欄位` });
+        continue;
+      }
+
+      // 國定假日檢查
+      const holidayNote = (csv[dateRowIdx + 2] || [])[colIdx] || '';
+      if (holidayNote.trim()) {
+        console.log(`    → ⏸ 先不簽（國定假日：${holidayNote.trim()}）`);
+        skipItems.push({ ...item, reason: `國定假日（${holidayNote.trim()}）` });
+        continue;
+      }
+
+      // 比對員工時數
+      const empRow = csv.find(r => r[1]?.trim() === item.name && r[2]?.trim() === '加班時數');
+      if (!empRow) {
+        console.log(`    → ⏸ 先不簽（試算表找不到 ${item.name}）`);
+        skipItems.push({ ...item, reason: `試算表找不到 ${item.name}` });
+        continue;
+      }
+
+      const sheetHours = parseFloat(empRow[colIdx]) || 0;
+      console.log(`    試算表: ${sheetHours}H，NuEIP: ${nueipHours}H`);
+
+      if (sheetHours <= 0) {
+        console.log(`    → ❌ 不通過（試算表當日無填寫）`);
+        failItems.push({ ...item, nueipHours, sheetHours, reason: '試算表當日無填寫' });
+      } else if (nueipHours <= sheetHours) {
+        console.log(`    → ✅ 通過（NuEIP ${nueipHours}H ≤ 表單 ${sheetHours}H）`);
+        passItems.push({ ...item, nueipHours, sheetHours });
+      } else {
+        console.log(`    → ❌ 不通過（NuEIP ${nueipHours}H > 表單 ${sheetHours}H）`);
+        failItems.push({ ...item, nueipHours, sheetHours, reason: `NuEIP ${nueipHours}H > 表單 ${sheetHours}H` });
+      }
     }
 
     await page.bringToFront();
@@ -128,7 +241,6 @@ async function main() {
       }
       await page.click('button:has-text("不通過")');
       await page.waitForTimeout(1000);
-      console.log(`\n  ✅ 已送出不通過 ${failItems.length} 筆`);
     }
 
     // 通過
@@ -149,10 +261,9 @@ async function main() {
       }
       await page.click('button:has-text("簽核通過")');
       await page.waitForTimeout(1000);
-      console.log(`  ✅ 已送出通過 ${passItems.length} 筆`);
     }
 
-    console.log(`\n完成：通過 ${passItems.length} / 不通過 ${failItems.length} / 略過 ${skipItems.length}`);
+    console.log(`\n完成：通過 ${passItems.length} / 不通過 ${failItems.length} / 先不簽 ${skipItems.length}`);
 
   } catch (err) {
     console.error('\n❌ 發生錯誤：', err.message);
