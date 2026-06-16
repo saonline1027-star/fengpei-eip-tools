@@ -1,342 +1,338 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
- <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-  <title>鋒霈 EIP 工具</title>
- <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, 'Microsoft JhengHei', sans-serif; background: #f0f2f5; color: #1a1a1a; min-height: 100vh; }
-    header { background: #1e3a5f; color: white; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
-    header h1 { font-size: 18px; font-weight: 600; }
-    #settings-toggle { background: rgba(255,255,255,0.15); border: none; color: white; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; }
-    .container { max-width: 480px; margin: 0 auto; padding: 16px; }
-    #status-bar { background: white; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; border-left: 4px solid #ccc; font-size: 14px; display: none; word-break: break-word; line-height: 1.5; }
-    #status-bar.running { border-color: #f59e0b; }
-    #status-bar.success { border-color: #10b981; }
-    #status-bar.error   { border-color: #ef4444; }
-    .card { background: white; border-radius: 12px; margin-bottom: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-    .card-header { padding: 16px 20px; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
-    .card-header .arrow { margin-left: auto; color: #888; font-size: 12px; transition: transform 0.2s; }
-    .card-header.open .arrow { transform: rotate(180deg); }
-    .card-body { padding: 0 20px 20px; display: none; }
-    .card-body.open { display: block; }
-    .btn-primary { width: 100%; padding: 14px; background: #1e3a5f; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-secondary { width: 100%; padding: 12px; background: #e8f0f8; color: #1e3a5f; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 12px; }
-    .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
-    .form-group { margin-bottom: 14px; }
-    .form-group label { display: block; font-size: 13px; color: #555; margin-bottom: 5px; font-weight: 500; }
-    .form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 15px; font-family: inherit; background: #fafafa; -webkit-appearance: none; }
-    .form-group input:focus, .form-group select:focus { outline: none; border-color: #1e3a5f; background: white; }
-    .form-row { display: flex; gap: 10px; }
-    .form-row .form-group { flex: 1; }
-    .hint { font-size: 12px; color: #888; margin-top: 4px; line-height: 1.4; }
-    #settings-panel { background: white; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); display: none; }
-    #settings-panel.open { display: block; }
-    #settings-panel .panel-body { padding: 0 20px 20px; }
-    .panel-title { padding: 16px 20px 12px; font-size: 16px; font-weight: 600; }
-    .save-btn { width: 100%; padding: 12px; background: #10b981; color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 4px; }
-    .tag { display: inline-block; background: #e8f0f8; color: #1e3a5f; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
-    .not-configured { text-align: center; padding: 32px 16px; color: #888; font-size: 14px; }
-    .not-configured .big { font-size: 40px; margin-bottom: 10px; }
-    #confirm-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: flex-end; justify-content: center; }
-    #confirm-overlay.open { display: flex; }
-    #confirm-box { background: white; border-radius: 16px 16px 0 0; padding: 28px 20px 40px; width: 100%; max-width: 480px; text-align: center; }
-    #confirm-box h3 { font-size: 20px; margin-bottom: 8px; }
-    #confirm-box p  { font-size: 15px; color: #555; margin-bottom: 28px; }
-    .confirm-btns { display: flex; gap: 12px; }
-    .confirm-btns button { flex: 1; padding: 14px; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
-    #confirm-cancel { background: #f0f2f5; color: #555; }
-    #confirm-ok     { background: #1e3a5f; color: white; }
-    .divider { height: 1px; background: #eee; margin: 16px 0; }
-  </style>
- </head>
- <body>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>鋒霈 EIP 工具</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'Microsoft JhengHei', sans-serif; background: #f0f2f5; color: #1a1a1a; min-height: 100vh; }
+  header { background: #1e3a5f; color: white; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+  header h1 { font-size: 18px; font-weight: 600; }
+  #settings-toggle { background: rgba(255,255,255,0.15); border: none; color: white; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .container { max-width: 480px; margin: 0 auto; padding: 16px; }
+  #status-bar { background: white; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; border-left: 4px solid #ccc; font-size: 14px; display: none; word-break: break-word; line-height: 1.5; }
+  #status-bar.running { border-color: #f59e0b; }
+  #status-bar.success { border-color: #10b981; }
+  #status-bar.error   { border-color: #ef4444; }
+  .card { background: white; border-radius: 12px; margin-bottom: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .card-header { padding: 16px 20px; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+  .card-header .arrow { margin-left: auto; color: #888; font-size: 12px; transition: transform 0.2s; }
+  .card-header.open .arrow { transform: rotate(180deg); }
+  .card-body { padding: 0 20px 20px; display: none; }
+  .card-body.open { display: block; }
+  .btn-primary { width: 100%; padding: 14px; background: #1e3a5f; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-secondary { width: 100%; padding: 12px; background: #e8f0f8; color: #1e3a5f; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 12px; }
+  .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 13px; color: #555; margin-bottom: 5px; font-weight: 500; }
+  .form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 15px; font-family: inherit; background: #fafafa; -webkit-appearance: none; }
+  .form-group input:focus, .form-group select:focus { outline: none; border-color: #1e3a5f; background: white; }
+  .form-row { display: flex; gap: 10px; }
+  .form-row .form-group { flex: 1; }
+  .hint { font-size: 12px; color: #888; margin-top: 4px; line-height: 1.4; }
+  #settings-panel { background: white; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); display: none; }
+  #settings-panel.open { display: block; }
+  #settings-panel .panel-body { padding: 0 20px 20px; }
+  .panel-title { padding: 16px 20px 12px; font-size: 16px; font-weight: 600; }
+  .save-btn { width: 100%; padding: 12px; background: #10b981; color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 4px; }
+  .tag { display: inline-block; background: #e8f0f8; color: #1e3a5f; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+  .not-configured { text-align: center; padding: 32px 16px; color: #888; font-size: 14px; }
+  .not-configured .big { font-size: 40px; margin-bottom: 10px; }
+  #confirm-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: flex-end; justify-content: center; }
+  #confirm-overlay.open { display: flex; }
+  #confirm-box { background: white; border-radius: 16px 16px 0 0; padding: 28px 20px 40px; width: 100%; max-width: 480px; text-align: center; }
+  #confirm-box h3 { font-size: 20px; margin-bottom: 8px; }
+  #confirm-box p  { font-size: 15px; color: #555; margin-bottom: 28px; }
+  .confirm-btns { display: flex; gap: 12px; }
+  .confirm-btns button { flex: 1; padding: 14px; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
+  #confirm-cancel { background: #f0f2f5; color: #555; }
+  #confirm-ok     { background: #1e3a5f; color: white; }
+  .divider { height: 1px; background: #eee; margin: 16px 0; }
+</style>
+</head>
+<body>
 
-  <header>
-     <h1>🏢 鋒霈 EIP 工具</h1>
-    <button id="settings-toggle" onclick="toggleSettings()">⚙ 帳號</button>button>
-  </header>
- 
- <div class="container">
-   <div id="status-bar"></div>div>
- 
-   <!-- 設定面板 -->
-   <div id="settings-panel">
-       <div class="panel-title">設定</div>div>
-       <div class="panel-body">
-             <div class="form-group">
-                     <label>Access Token（管理員提供，填一次就好）</label>
-                     <input id="gh-token" type="password" placeholder="ghp_xxxxxxxxxxxxxxxx">
-                     <p class="hint">存在你的手機裡，不會上傳到任何地方。</p>p>
-             </div>div>
-             <div class="divider"></div>div>
-             <div class="form-group">
-                     <label>員工編號</label>
-                     <input id="eip-username" type="text" placeholder="例：0156" inputmode="numeric">
-             </div>div>
-             <div class="form-group">
-                     <label>NuEIP 密碼</label>
-                     <input id="eip-password" type="password" placeholder="密碼">
-             </div>div>
-             <div class="form-group">
-                     <label>NuEIP SN（申請加班用，不確定可留空）</label>
-                     <input id="eip-nueip-sn" type="text" placeholder="選填">
-             </div>div>
-             <button class="save-btn" onclick="saveSettings()">✅ 儲存</button>button>
-       </div>div>
-   </div>div>
- 
-   <!-- 未設定提示 -->
-   <div id="not-configured" class="card" style="display:none;">
-       <div class="not-configured">
-             <div class="big">⚙️</div>div>
-             <p>請先點右上角<strong>「帳號」</strong>完成設定</p>
-       </div>div>
-   </div>div>
- 
-   <!-- 打卡下班 -->
-   <div class="card" id="card-clockout">
-       <div class="card-header" onclick="toggleCard('clockout')">
-             <span style="font-size:22px">🕐</span>span>
-             <span>打卡下班</span>
-             <span class="tag">外出登記</span>
-             <span class="arrow">▼</span>
-       </div>div>
-       <div class="card-body" id="body-clockout">
-             <p style="font-size:14px; color:#555; margin-bottom:16px;">自動填寫外出登記：外出 08:30、返回當下時間，上下班皆勾「不進公司」。</p>
-             <div class="form-group">
-                     <label>目的地</label>
-                     <input id="clockout-destination" type="text" placeholder="例：辦公室" value="辦公室">
-             </div>div>
-             <div class="form-group">
-                     <label>說明</label>
-                     <input id="clockout-remark" type="text" placeholder="例：work">
-             </div>div>
-             <div class="form-group">
-                     <label>延遲打卡（分鐘，0 = 立即）</label>
-                     <input id="clockout-delay" type="number" min="0" max="120" value="0" placeholder="0">
-             </div>div>
-             <button class="btn-primary" id="btn-clockout" onclick="confirmClockOut()">打卡下班</button>button>
-       </div>div>
-   </div>div>
- 
-   <!-- 申請加班 -->
-   <div class="card" id="card-applyot">
-       <div class="card-header" onclick="toggleCard('applyot')">
-             <span style="font-size:22px">📋</span>
-             <span>申請加班</span>
-             <span class="arrow">▼</span>
-       </div>div>
-       <div class="card-body" id="body-applyot">
-             <div class="form-group">
-                     <label>加班日期</label>
-                     <input id="ot-date" type="date">
-             </div>div>
-             <div class="form-row">
-                     <div class="form-group">
-                               <label>開始時間</label>
-                               <input id="ot-start" type="time" value="18:00">
-                     </div>div>
-                     <div class="form-group">
-                               <label>結束時間</label>
-                               <input id="ot-end" type="time" value="20:00">
-                     </div>div>
-             </div>div>
-             <div class="form-group">
-                     <label>加班類型</label>
-                     <select id="ot-type">
-                               <option value="1">平日加班換加班費</option>option>
-                               <option value="2">平日加班換補休</option>option>
-                               <option value="3">休息日加班換加班費</option>option>
-                               <option value="4">休息日加班換補休</option>option>
-                               <option value="5">國定假日換加班費</option>option>
-                               <option value="6">國定假日加班換補休</option>option>
-                     </select>select>
-             </div>div>
-             <div class="form-group">
-                     <label>說明（可空白）</label>
-                     <input id="ot-reason" type="text" placeholder="例：趕工、主管交辦">
-             </div>div>
-             <button class="btn-secondary" id="btn-applyot" onclick="triggerApplyOT()">送出加班申請</button>button>
-       </div>div>
-   </div>div>
- </div>div>
- 
- <!-- 打卡確認 Modal -->
- <div id="confirm-overlay">
-   <div id="confirm-box">
-       <h3>確認打卡下班？</h3>
-       <p id="confirm-msg">返回時間：--:--</p>
-       <div class="confirm-btns">
-             <button id="confirm-cancel" onclick="closeConfirm()">取消</button>button>
-             <button id="confirm-ok" onclick="doClockOut()">確定打卡</button>button>
-       </div>div>
-   </div>div>
- </div>div>
- 
- <script>
-  // 寫死的 GitHub 帳號資訊（不是密碼，不需要保密）
-  const GH_OWNER = 'saonline1027-star';
-  const GH_REPO  = 'fengpei-eip-tools';
+<header>
+  <h1>🏢 鋒霈 EIP 工具</h1>
+  <button id="settings-toggle" onclick="toggleSettings()">⚙ 帳號</button>
+</header>
 
-  function load(k) { return localStorage.getItem(k) || ''; }
-  function save(k, v) { localStorage.setItem(k, v); }
+<div class="container">
+  <div id="status-bar"></div>
 
-  function loadSettings() {
-     document.getElementById('gh-token').value     = load('gh_token');
-     document.getElementById('eip-username').value = load('eip_username');
-     document.getElementById('eip-password').value = load('eip_password');
-     document.getElementById('eip-nueip-sn').value = load('eip_nueip_sn');
-  }
+  <!-- 設定面板 -->
+  <div id="settings-panel">
+    <div class="panel-title">設定</div>
+    <div class="panel-body">
+      <div class="form-group">
+        <label>Access Token（管理員提供，填一次就好）</label>
+        <input id="gh-token" type="password" placeholder="ghp_xxxxxxxxxxxxxxxx">
+        <p class="hint">存在你的手機裡，不會上傳到任何地方。</p>
+      </div>
+      <div class="divider"></div>
+      <div class="form-group">
+        <label>員工編號</label>
+        <input id="eip-username" type="text" placeholder="例：0156" inputmode="numeric">
+      </div>
+      <div class="form-group">
+        <label>NuEIP 密碼</label>
+        <input id="eip-password" type="password" placeholder="密碼">
+      </div>
+      <div class="form-group">
+        <label>NuEIP SN（申請加班用，不確定可留空）</label>
+        <input id="eip-nueip-sn" type="text" placeholder="選填">
+      </div>
+      <button class="save-btn" onclick="saveSettings()">✅ 儲存</button>
+    </div>
+  </div>
 
-  function saveSettings() {
-     save('gh_token',     document.getElementById('gh-token').value.trim());
-     save('eip_username', document.getElementById('eip-username').value.trim());
-     save('eip_password', document.getElementById('eip-password').value);
-     save('eip_nueip_sn', document.getElementById('eip-nueip-sn').value.trim());
-     document.getElementById('settings-panel').classList.remove('open');
-     showStatus('success', '✅ 設定已儲存');
-     checkConfigured();
-  }
+  <!-- 未設定提示 -->
+  <div id="not-configured" class="card" style="display:none;">
+    <div class="not-configured">
+      <div class="big">⚙️</div>
+      <p>請先點右上角<strong>「帳號」</strong>完成設定</p>
+    </div>
+  </div>
 
-  function isConfigured() {
-     return !!(load('gh_token') && load('eip_username') && load('eip_password'));
-  }
+  <!-- 打卡下班 -->
+  <div class="card" id="card-clockout">
+    <div class="card-header" onclick="toggleCard('clockout')">
+      <span style="font-size:22px">🕐</span>
+      <span>打卡下班</span>
+      <span class="tag">外出登記</span>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="card-body" id="body-clockout">
+      <p style="font-size:14px; color:#555; margin-bottom:16px;">自動填寫外出登記：外出 08:30、返回當下時間，上下班皆勾「不進公司」。</p>
+      <div class="form-group">
+        <label>目的地</label>
+        <input id="clockout-destination" type="text" placeholder="例：辦公室" value="辦公室">
+      </div>
+      <div class="form-group">
+        <label>說明</label>
+        <input id="clockout-remark" type="text" placeholder="例：work">
+      </div>
+      <div class="form-group">
+        <label>延遲打卡（分鐘，0 = 立即）</label>
+        <input id="clockout-delay" type="number" min="0" max="120" value="0" placeholder="0">
+      </div>
+      <button class="btn-primary" id="btn-clockout" onclick="confirmClockOut()">打卡下班</button>
+    </div>
+  </div>
 
-  function checkConfigured() {
-     const ok = isConfigured();
-     document.getElementById('not-configured').style.display = ok ? 'none' : '';
-     document.getElementById('card-clockout').style.display  = ok ? '' : 'none';
-     document.getElementById('card-applyot').style.display   = ok ? '' : 'none';
-  }
+  <!-- 申請加班 -->
+  <div class="card" id="card-applyot">
+    <div class="card-header" onclick="toggleCard('applyot')">
+      <span style="font-size:22px">📋</span>
+      <span>申請加班</span>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="card-body" id="body-applyot">
+      <div class="form-group">
+        <label>加班日期</label>
+        <input id="ot-date" type="date">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>開始時間</label>
+          <input id="ot-start" type="time" value="18:00">
+        </div>
+        <div class="form-group">
+          <label>結束時間</label>
+          <input id="ot-end" type="time" value="20:00">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>加班類型</label>
+        <select id="ot-type">
+          <option value="1">平日加班換加班費</option>
+          <option value="2">平日加班換補休</option>
+          <option value="3">休息日加班換加班費</option>
+          <option value="4">休息日加班換補休</option>
+          <option value="5">國定假日換加班費</option>
+          <option value="6">國定假日加班換補休</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>說明（可空白）</label>
+        <input id="ot-reason" type="text" placeholder="例：趕工、主管交辦">
+      </div>
+      <button class="btn-secondary" id="btn-applyot" onclick="triggerApplyOT()">送出加班申請</button>
+    </div>
+  </div>
+</div>
 
-  function toggleSettings() {
-     const p = document.getElementById('settings-panel');
-     p.classList.toggle('open');
-     if (p.classList.contains('open')) loadSettings();
-  }
+<!-- 打卡確認 Modal -->
+<div id="confirm-overlay">
+  <div id="confirm-box">
+    <h3>確認打卡下班？</h3>
+    <p id="confirm-msg">返回時間：--:--</p>
+    <div class="confirm-btns">
+      <button id="confirm-cancel" onclick="closeConfirm()">取消</button>
+      <button id="confirm-ok" onclick="doClockOut()">確定打卡</button>
+    </div>
+  </div>
+</div>
 
-  function toggleCard(id) {
-     document.querySelector(`#card-${id} .card-header`).classList.toggle('open');
-     document.getElementById(`body-${id}`).classList.toggle('open');
-  }
+<script>
+// 寫死的 GitHub 帳號資訊（不是密碼，不需要保密）
+const GH_OWNER = 'saonline1027-star';
+const GH_REPO  = 'fengpei-eip-tools';
 
-  function showStatus(type, msg) {
-     const b = document.getElementById('status-bar');
-     b.className = type; b.textContent = msg; b.style.display = 'block';
-     if (type !== 'running') setTimeout(() => { b.style.display = 'none'; }, 8000);
-  }
+function load(k) { return localStorage.getItem(k) || ''; }
+function save(k, v) { localStorage.setItem(k, v); }
 
-  function setLoading(id, loading, orig) {
-     const btn = document.getElementById(id);
-     btn.disabled = loading;
-     btn.textContent = loading ? '⏳ 觸發中...' : orig;
-  }
+function loadSettings() {
+  document.getElementById('gh-token').value     = load('gh_token');
+  document.getElementById('eip-username').value = load('eip_username');
+  document.getElementById('eip-password').value = load('eip_password');
+  document.getElementById('eip-nueip-sn').value = load('eip_nueip_sn');
+}
 
-  async function triggerWorkflow(workflow, inputs) {
-     const token = load('gh_token');
-     const res = await fetch(
-          `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/${workflow}/dispatches`,
-      {
-             method: 'POST',
-             headers: {
-                      'Authorization': `Bearer ${token}`,
-                      'Accept': 'application/vnd.github+json',
-                      'Content-Type': 'application/json',
-                      'X-GitHub-Api-Version': '2022-11-28',
-             },
-             body: JSON.stringify({ ref: 'main', inputs }),
-      }
-        );
-     if (res.status === 204) return;
-     if (res.status === 401) throw new Error('Token 無效，請重新設定');
-     if (res.status === 404) throw new Error('找不到 workflow，請聯絡管理員');
-     throw new Error(`錯誤 ${res.status}`);
-  }
-
-  function confirmClockOut() {
-     if (!isConfigured()) { showStatus('error', '請先完成設定'); return; }
-     const now = new Date();
-     document.getElementById('confirm-msg').textContent =
-          `返回時間將記錄為 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-     document.getElementById('confirm-overlay').classList.add('open');
-  }
-
-  function closeConfirm() {
-     document.getElementById('confirm-overlay').classList.remove('open');
-  }
-
-  async function doClockOut() {
-     closeConfirm();
-     const destination = document.getElementById('clockout-destination').value.trim() || '辦公室';
-     const remark      = document.getElementById('clockout-remark').value.trim();
-     save('clockout_destination', destination);
-     save('clockout_remark', remark);
-     setLoading('btn-clockout', true, '打卡下班');
-     showStatus('running', '⏳ 已觸發，雲端執行中（約 30~40 秒）...');
-     try {
-          await triggerWorkflow('clock-out.yml', {
-                 username:    load('eip_username'),
-                 password:    load('eip_password'),
-                 destination:   destination,
-                 remark:        remark,
-                 delay_minutes: document.getElementById('clockout-delay').value.trim() || '0',
-          });
-          showStatus('success', '✅ 打卡下班已送出！約 30~40 秒後完成，可至 NuEIP 確認。');
-     } catch (e) {
-          showStatus('error', `❌ ${e.message}`);
-     } finally {
-          setLoading('btn-clockout', false, '打卡下班');
-     }
-  }
-
-  async function triggerApplyOT() {
-     if (!isConfigured()) { showStatus('error', '請先完成設定'); return; }
-     const otDate = document.getElementById('ot-date').value;
-     const otStart = document.getElementById('ot-start').value;
-     const otEnd   = document.getElementById('ot-end').value;
-     if (!otDate || !otStart || !otEnd) { showStatus('error', '請填寫加班日期與時間'); return; }
-     setLoading('btn-applyot', true, '送出加班申請');
-     showStatus('running', '⏳ 已觸發，雲端執行中...');
-     try {
-          await triggerWorkflow('apply-ot.yml', {
-                 username:  load('eip_username'),
-                 password:  load('eip_password'),
-                 nueip_sn:  load('eip_nueip_sn'),
-                 ot_date:   otDate,
-                 ot_start:  otStart,
-                 ot_end:    otEnd,
-                 ot_type:   document.getElementById('ot-type').value,
-                 ot_reason: document.getElementById('ot-reason').value,
-          });
-          showStatus('success', `✅ 申請已送出！${otDate} ${otStart}~${otEnd}`);
-     } catch (e) {
-          showStatus('error', `❌ ${e.message}`);
-     } finally {
-          setLoading('btn-applyot', false, '送出加班申請');
-     }
-  }
-
-  // 加班日期預設今天
-  const t = new Date();
-  document.getElementById('ot-date').value =
-     `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
-
-  // 讀取上次填的打卡目的地和說明
-  const savedDest = load('clockout_destination');
-  if (savedDest) document.getElementById('clockout-destination').value = savedDest;
-  const savedRemark = load('clockout_remark');
-  if (savedRemark) document.getElementById('clockout-remark').value = savedRemark;
-
+function saveSettings() {
+  save('gh_token',     document.getElementById('gh-token').value.trim());
+  save('eip_username', document.getElementById('eip-username').value.trim());
+  save('eip_password', document.getElementById('eip-password').value);
+  save('eip_nueip_sn', document.getElementById('eip-nueip-sn').value.trim());
+  document.getElementById('settings-panel').classList.remove('open');
+  showStatus('success', '✅ 設定已儲存');
   checkConfigured();
- </script>
- </body>
-</html>html>
+}
 
- </script></span></span></strong></p></label></label></h1>
-  </header>
- </body>
- </style></title>
- </head>
+function isConfigured() {
+  return !!(load('gh_token') && load('eip_username') && load('eip_password'));
+}
+
+function checkConfigured() {
+  const ok = isConfigured();
+  document.getElementById('not-configured').style.display = ok ? 'none' : '';
+  document.getElementById('card-clockout').style.display  = ok ? '' : 'none';
+  document.getElementById('card-applyot').style.display   = ok ? '' : 'none';
+}
+
+function toggleSettings() {
+  const p = document.getElementById('settings-panel');
+  p.classList.toggle('open');
+  if (p.classList.contains('open')) loadSettings();
+}
+
+function toggleCard(id) {
+  document.querySelector(`#card-${id} .card-header`).classList.toggle('open');
+  document.getElementById(`body-${id}`).classList.toggle('open');
+}
+
+function showStatus(type, msg) {
+  const b = document.getElementById('status-bar');
+  b.className = type; b.textContent = msg; b.style.display = 'block';
+  if (type !== 'running') setTimeout(() => { b.style.display = 'none'; }, 8000);
+}
+
+function setLoading(id, loading, orig) {
+  const btn = document.getElementById(id);
+  btn.disabled = loading;
+  btn.textContent = loading ? '⏳ 觸發中...' : orig;
+}
+
+async function triggerWorkflow(workflow, inputs) {
+  const token = load('gh_token');
+  const res = await fetch(
+    `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/${workflow}/dispatches`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+      body: JSON.stringify({ ref: 'main', inputs }),
+    }
+  );
+  if (res.status === 204) return;
+  if (res.status === 401) throw new Error('Token 無效，請重新設定');
+  if (res.status === 404) throw new Error('找不到 workflow，請聯絡管理員');
+  throw new Error(`錯誤 ${res.status}`);
+}
+
+function confirmClockOut() {
+  if (!isConfigured()) { showStatus('error', '請先完成設定'); return; }
+  const now = new Date();
+  document.getElementById('confirm-msg').textContent =
+    `返回時間將記錄為 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+}
+
+async function doClockOut() {
+  closeConfirm();
+  const destination = document.getElementById('clockout-destination').value.trim() || '辦公室';
+  const remark      = document.getElementById('clockout-remark').value.trim();
+  const delay       = document.getElementById('clockout-delay').value.trim() || '0';
+  save('clockout_destination', destination);
+  save('clockout_remark', remark);
+  setLoading('btn-clockout', true, '打卡下班');
+  const delayMsg = Number(delay) > 0 ? `延遲 ${delay} 分鐘後打卡，` : '';
+  showStatus('running', `⏳ ${delayMsg}已觸發，雲端執行中...`);
+  try {
+    await triggerWorkflow('clock-out.yml', {
+      username:      load('eip_username'),
+      password:      load('eip_password'),
+      destination:   destination,
+      remark:        remark,
+      delay_minutes: delay,
+    });
+    showStatus('success', `✅ 打卡下班已送出！${delayMsg}可至 NuEIP 確認。`);
+  } catch (e) {
+    showStatus('error', `❌ ${e.message}`);
+  } finally {
+    setLoading('btn-clockout', false, '打卡下班');
+  }
+}
+
+async function triggerApplyOT() {
+  if (!isConfigured()) { showStatus('error', '請先完成設定'); return; }
+  const otDate = document.getElementById('ot-date').value;
+  const otStart = document.getElementById('ot-start').value;
+  const otEnd   = document.getElementById('ot-end').value;
+  if (!otDate || !otStart || !otEnd) { showStatus('error', '請填寫加班日期與時間'); return; }
+  setLoading('btn-applyot', true, '送出加班申請');
+  showStatus('running', '⏳ 已觸發，雲端執行中...');
+  try {
+    await triggerWorkflow('apply-ot.yml', {
+      username:  load('eip_username'),
+      password:  load('eip_password'),
+      nueip_sn:  load('eip_nueip_sn'),
+      ot_date:   otDate,
+      ot_start:  otStart,
+      ot_end:    otEnd,
+      ot_type:   document.getElementById('ot-type').value,
+      ot_reason: document.getElementById('ot-reason').value,
+    });
+    showStatus('success', `✅ 申請已送出！${otDate} ${otStart}~${otEnd}`);
+  } catch (e) {
+    showStatus('error', `❌ ${e.message}`);
+  } finally {
+    setLoading('btn-applyot', false, '送出加班申請');
+  }
+}
+
+// 加班日期預設今天
+const t = new Date();
+document.getElementById('ot-date').value =
+  `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+
+// 讀取上次填的打卡目的地和說明
+const savedDest = load('clockout_destination');
+if (savedDest) document.getElementById('clockout-destination').value = savedDest;
+const savedRemark = load('clockout_remark');
+if (savedRemark) document.getElementById('clockout-remark').value = savedRemark;
+
+checkConfigured();
+</script>
+</body>
+</html>
