@@ -258,9 +258,11 @@ async function triggerWorkflow(workflow, inputs) {
 
 function confirmClockOut() {
   if (!isConfigured()) { showStatus('error', '請先完成設定'); return; }
-  const now = new Date();
+  const delay = Number(document.getElementById('clockout-delay').value) || 0;
+  const now = new Date(Date.now() + delay * 60 * 1000);
+  const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   document.getElementById('confirm-msg').textContent =
-    `返回時間將記錄為 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    delay > 0 ? `返回時間將記錄為 ${timeStr}（${delay} 分鐘後）` : `返回時間將記錄為 ${timeStr}`;
   document.getElementById('confirm-overlay').classList.add('open');
 }
 
