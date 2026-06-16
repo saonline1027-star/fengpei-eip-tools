@@ -28,7 +28,7 @@ jobs:
       image: mcr.microsoft.com/playwright:v1.60.0-jammy
     timeout-minutes: 130
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Mask password
         run: echo "::add-mask::${{ inputs.password }}"
@@ -36,7 +36,7 @@ jobs:
       - name: 延遲等待
         if: ${{ inputs.delay_minutes != '0' }}
         run: |
-          echo "waiting ${{ inputs.delay_minutes }} minutes..."
+          echo "⏳ 等待 ${{ inputs.delay_minutes }} 分鐘後打卡..."
           sleep $(( ${{ inputs.delay_minutes }} * 60 ))
 
       - name: Install dependencies
