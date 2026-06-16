@@ -134,8 +134,8 @@ async function main() {
       return;
     }
 
-    let passCount = 0;
-    let failCount = 0;
+    const passRows = [];
+    const failRows = [];
     let skipCount = 0;
 
     for (const row of rows) {
@@ -165,11 +165,7 @@ async function main() {
       // 條件②：工時 >= 9h（直接通過）
       if (diffHrs >= 9) {
         console.log(`    → ✅ 通過`);
-        await page.evaluate((idx) => {
-          const cb = document.querySelectorAll('table tbody tr')[idx]?.querySelector('input[type="checkbox"]');
-          if (cb && !cb.checked) cb.click();
-        }, row.index);
-        passCount++;
+        passRows.push(row);
         continue;
       }
 
@@ -180,23 +176,45 @@ async function main() {
 
       if (totalHrs >= 9) {
         console.log(`    → ✅ 通過（含請假合計 ${totalHrs.toFixed(1)}h ≥ 9h）`);
+        passRows.push(row);
+      } else {
+        console.log(`    → ❌ 不通過（合計 ${totalHrs.toFixed(1)}h < 9h）`);
+        failRows.push(row);
+      }
+    }
+
+    // 不通過：勾選 + 按不通過
+    if (failRows.length > 0) {
+      for (const row of failRows) {
         await page.evaluate((idx) => {
           const cb = document.querySelectorAll('table tbody tr')[idx]?.querySelector('input[type="checkbox"]');
           if (cb && !cb.checked) cb.click();
         }, row.index);
-        passCount++;
-      } else {
-        console.log(`    → ❌ 不通過（合計 ${totalHrs.toFixed(1)}h < 9h）`);
-        failCount++;
       }
+      await page.click('button:has-text("不通過")');
+      await page.waitForTimeout(2000);
+      console.log(`\n  已送出不通過 ${failRows.length} 筆`);
     }
 
-    if (passCount > 0) {
+    // 通過：重新整理後勾選 + 按簽核通過
+    if (passRows.length > 0) {
+      if (failRows.length > 0) {
+        await page.reload();
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(2000);
+      }
+      for (const row of passRows) {
+        await page.evaluate((idx) => {
+          const cb = document.querySelectorAll('table tbody tr')[idx]?.querySelector('input[type="checkbox"]');
+          if (cb && !cb.checked) cb.click();
+        }, row.index);
+      }
       await page.click('button:has-text("簽核通過")');
       await page.waitForTimeout(2000);
+      console.log(`  已送出通過 ${passRows.length} 筆`);
     }
 
-    console.log(`\n完成：通過 ${passCount} 筆 / 不通過 ${failCount} 筆 / 先不簽 ${skipCount} 筆`);
+    console.log(`\n完成：通過 ${passRows.length} 筆 / 不通過 ${failRows.length} 筆 / 先不簽 ${skipCount} 筆`);
 
   } catch (err) {
     console.error('\n❌ 發生錯誤：', err.message);
