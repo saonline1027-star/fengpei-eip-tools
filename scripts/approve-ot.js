@@ -163,16 +163,20 @@ async function main() {
       let dateRowIdx = -1;
       for (let i = 0; i < csv.length; i++) {
         const row = csv[i];
-        const idx1 = row.indexOf('1');
-        if (idx1 >= 0 && row[idx1 + 1] === '2') {
+        const vals = row.map(v => v.trim());
+        const idx1 = vals.indexOf('1');
+        if (idx1 >= 0 && vals[idx1 + 1] === '2') {
           dateRowIdx = i;
           break;
         }
       }
 
       if (dateRowIdx < 0) {
-        console.log(`    → ⏸ 先不簽（找不到日期列）`);
-        skipItems.push({ ...item, reason: '試算表格式異常' });
+        // debug：印前 5 列讓我們看結構
+        console.log(`    [debug] CSV 前 5 列：`);
+        csv.slice(0, 5).forEach((r, i) => console.log(`      [${i}] ${JSON.stringify(r.slice(0,8))}`));
+        console.log(`    → ❌ 不通過（找不到日期列）`);
+        failItems.push({ ...item, reason: '試算表格式異常，找不到日期列' });
         continue;
       }
 
