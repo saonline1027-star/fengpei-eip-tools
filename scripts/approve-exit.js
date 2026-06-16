@@ -183,34 +183,41 @@ async function main() {
       }
     }
 
-    // 不通過：勾選 + 按不通過
-    if (failRows.length > 0) {
-      for (const row of failRows) {
+    // 重新讀表格，用 outTime 比對找到當下正確的 index
+    async function recheckAndClick(targetRows, btnText) {
+      const currentRows = await page.evaluate(() => {
+        const dtFull = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/;
+        return Array.from(document.querySelectorAll('table tbody tr')).map((row, index) => {
+          const texts = Array.from(row.querySelectorAll('td')).map(c => c.innerText.trim().replace(/\s+/g, ' '));
+          const dtCells = texts.filter(t => dtFull.test(t));
+          return { index, outTime: dtCells[0] || '' };
+        }).filter(r => r.outTime);
+      });
+
+      for (const target of targetRows) {
+        const match = currentRows.find(r => r.outTime === target.outTime);
+        if (!match) { console.log(`  ✗ 找不到 ${target.outTime} 的記錄`); continue; }
         await page.evaluate((idx) => {
           const cb = document.querySelectorAll('table tbody tr')[idx]?.querySelector('input[type="checkbox"]');
           if (cb && !cb.checked) cb.click();
-        }, row.index);
+        }, match.index);
       }
-      await page.click('button:has-text("不通過")');
+      await page.click(`button:has-text("${btnText}")`);
       await page.waitForTimeout(2000);
+    }
+
+    // 不通過
+    if (failRows.length > 0) {
+      await recheckAndClick(failRows, '不通過');
       console.log(`\n  已送出不通過 ${failRows.length} 筆`);
     }
 
-    // 通過：重新整理後勾選 + 按簽核通過
+    // 通過：reload 確保頁面是最新狀態
     if (passRows.length > 0) {
-      if (failRows.length > 0) {
-        await page.reload();
-        await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(2000);
-      }
-      for (const row of passRows) {
-        await page.evaluate((idx) => {
-          const cb = document.querySelectorAll('table tbody tr')[idx]?.querySelector('input[type="checkbox"]');
-          if (cb && !cb.checked) cb.click();
-        }, row.index);
-      }
-      await page.click('button:has-text("簽核通過")');
+      await page.reload();
+      await page.waitForLoadState('networkidle');
       await page.waitForTimeout(2000);
+      await recheckAndClick(passRows, '簽核通過');
       console.log(`  已送出通過 ${passRows.length} 筆`);
     }
 
