@@ -36,7 +36,7 @@ jobs:
       - name: 延遲等待
         if: ${{ inputs.delay_minutes != '0' }}
         run: |
-          echo "⏳ 等待 ${{ inputs.delay_minutes }} 分鐘後打卡..."
+          echo "waiting ${{ inputs.delay_minutes }} minutes..."
           sleep $(( ${{ inputs.delay_minutes }} * 60 ))
 
       - name: Install dependencies
