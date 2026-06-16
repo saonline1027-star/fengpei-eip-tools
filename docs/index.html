@@ -159,6 +159,10 @@
         <label>說明（可空白）</label>
         <input id="ot-reason" type="text" placeholder="例：趕工、主管交辦">
       </div>
+      <div class="form-group">
+        <label>延遲執行（分鐘，0 = 立即）</label>
+        <input id="applyot-delay" type="number" min="0" max="120" value="0" placeholder="0">
+      </div>
       <button class="btn-secondary" id="btn-applyot" onclick="triggerApplyOT()">送出加班申請</button>
     </div>
   </div>
@@ -302,20 +306,23 @@ async function triggerApplyOT() {
   const otStart = document.getElementById('ot-start').value;
   const otEnd   = document.getElementById('ot-end').value;
   if (!otDate || !otStart || !otEnd) { showStatus('error', '請填寫加班日期與時間'); return; }
+  const delay = document.getElementById('applyot-delay').value.trim() || '0';
   setLoading('btn-applyot', true, '送出加班申請');
-  showStatus('running', '⏳ 已觸發，雲端執行中...');
+  const delayMsg = Number(delay) > 0 ? `延遲 ${delay} 分鐘後執行，` : '';
+  showStatus('running', `⏳ ${delayMsg}已觸發，雲端執行中...`);
   try {
     await triggerWorkflow('apply-ot.yml', {
-      username:  load('eip_username'),
-      password:  load('eip_password'),
-      nueip_sn:  load('eip_nueip_sn'),
-      ot_date:   otDate,
-      ot_start:  otStart,
-      ot_end:    otEnd,
-      ot_type:   document.getElementById('ot-type').value,
-      ot_reason: document.getElementById('ot-reason').value,
+      username:      load('eip_username'),
+      password:      load('eip_password'),
+      nueip_sn:      load('eip_nueip_sn'),
+      ot_date:       otDate,
+      ot_start:      otStart,
+      ot_end:        otEnd,
+      ot_type:       document.getElementById('ot-type').value,
+      ot_reason:     document.getElementById('ot-reason').value,
+      delay_minutes: delay,
     });
-    showStatus('success', `✅ 申請已送出！${otDate} ${otStart}~${otEnd}`);
+    showStatus('success', `✅ 申請已送出！${delayMsg}${otDate} ${otStart}~${otEnd}`);
   } catch (e) {
     showStatus('error', `❌ ${e.message}`);
   } finally {
