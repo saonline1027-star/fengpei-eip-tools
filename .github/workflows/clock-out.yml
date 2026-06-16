@@ -2,52 +2,53 @@ name: 打卡下班
 
 on:
   workflow_dispatch:
-    inputs:
-      username:
-        description: '員工編號'
-        required: true
-      password:
-        description: '密碼'
-        required: true
-      destination:
-        description: '目的地'
-        required: false
-        default: '辦公室'
-      remark:
-        description: '說明'
-        required: false
-        default: ''
-      delay_minutes:
-        description: '延遲幾分鐘後打卡（0 = 立即）'
-        required: false
-        default: '0'
-jobs:
-  run:
-    runs-on: ubuntu-latest
-    container:
-      image: mcr.microsoft.com/playwright:v1.60.0-jammy
-    timeout-minutes: 130
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Mask password
-        run: echo "::add-mask::${{ inputs.password }}"
-
-      - name: 延遲等待
-        if: ${{ inputs.delay_minutes != '0' }}
-        run: |
-          echo "waiting ${{ inputs.delay_minutes }} minutes..."
-          sleep $(( ${{ inputs.delay_minutes }} * 60 ))
-
-      - name: Install dependencies
-        run: npm install --omit=dev
-
-      - name: 執行打卡下班
-        env:
-          EIP_COMPANY: retech
-          EIP_USERNAME: ${{ inputs.username }}
-          EIP_PASSWORD: ${{ inputs.password }}
-          EIP_DESTINATION: ${{ inputs.destination }}
-          EIP_REMARK: ${{ inputs.remark }}
-          PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
-        run: node scripts/clock-out.js
+      inputs:
+            username:
+                    description: '員工編號'
+                            required: true
+                                  password:
+                                          description: '密碼'
+                                                  required: true
+                                                        destination:
+                                                                description: '目的地'
+                                                                        required: false
+                                                                                default: '辦公室'
+                                                                                      remark:
+                                                                                              description: '說明'
+                                                                                                      required: false
+                                                                                                              default: ''
+                                                                                                                    delay_minutes:
+                                                                                                                            description: '延遲幾分鐘後打卡（0 = 立即）'
+                                                                                                                                    required: false
+                                                                                                                                            default: '0'
+                                                                                                                                            jobs:
+                                                                                                                                              run:
+                                                                                                                                                  runs-on: ubuntu-latest
+                                                                                                                                                      container:
+                                                                                                                                                            image: mcr.microsoft.com/playwright:v1.60.0-jammy
+                                                                                                                                                                timeout-minutes: 130
+                                                                                                                                                                    steps:
+                                                                                                                                                                          - uses: actions/checkout@v4
+                                                                                                                                                                          
+                                                                                                                                                                                - name: Mask password
+                                                                                                                                                                                        run: echo "::add-mask::${{ inputs.password }}"
+                                                                                                                                                                                        
+                                                                                                                                                                                              - name: 延遲等待
+                                                                                                                                                                                                      if: ${{ inputs.delay_minutes != '0' }}
+                                                                                                                                                                                                              run: |
+                                                                                                                                                                                                                        echo "waiting ${{ inputs.delay_minutes }} minutes..."
+                                                                                                                                                                                                                                  sleep $(( ${{ inputs.delay_minutes }} * 60 ))
+                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                        - name: Install dependencies
+                                                                                                                                                                                                                                                run: npm install --omit=dev
+                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                      - name: 執行打卡下班
+                                                                                                                                                                                                                                                              env:
+                                                                                                                                                                                                                                                                        EIP_COMPANY: retech
+                                                                                                                                                                                                                                                                                  EIP_USERNAME: ${{ inputs.username }}
+                                                                                                                                                                                                                                                                                            EIP_PASSWORD: ${{ inputs.password }}
+                                                                                                                                                                                                                                                                                                      EIP_DESTINATION: ${{ inputs.destination }}
+                                                                                                                                                                                                                                                                                                                EIP_REMARK: ${{ inputs.remark }}
+                                                                                                                                                                                                                                                                                                                          PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+                                                                                                                                                                                                                                                                                                                                  run: node scripts/clock-out.js
+                                                                                                                                                                                                                                                                                                                                  
