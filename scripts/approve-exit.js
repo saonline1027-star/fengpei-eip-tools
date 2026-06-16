@@ -42,7 +42,7 @@ async function main() {
       { timeout: 15000 }
     ).catch(() => {});
 
-    console.log('[3/3] 判斷待簽資料...');
+    console.log('[3/3] 判斷待簽資料...\n');
 
     const rows = await page.evaluate(() => {
       const trs = document.querySelectorAll('table tbody tr');
@@ -65,12 +65,12 @@ async function main() {
     });
 
     if (!rows.length) {
-      console.log('\n✅ 沒有待簽的外出申請。');
+      console.log('✅ 沒有待簽的外出申請。');
       return;
     }
 
     let passCount = 0;
-    const results = [];
+    let skipCount = 0;
 
     for (const row of rows) {
       const outDT   = parseDateTime(row.outTime);
@@ -79,36 +79,38 @@ async function main() {
       const outMin  = outDT.getHours() * 60 + outDT.getMinutes();
       const diffHrs = (retDT - outDT) / 3600000;
 
-      const cond1 = outMin <= 8 * 60 + 30;
-      const cond2 = diffHrs >= 9;
-      const cond3 = appDT >= retDT;
-      const pass  = cond1 && cond2 && cond3;
+      const cond1 = outMin <= 9 * 60;    // 外出 <= 09:00
+      const cond2 = diffHrs >= 9;         // 工時 >= 9h
+      const cond3 = appDT >= retDT;       // 申請 >= 返回
 
-      console.log(`  ▸ 外出:${row.outTime}  返回:${row.returnTime}`);
-      console.log(`    ①外出≤08:30:${cond1?'O':'X'}  ②工時≥9h(${diffHrs.toFixed(1)}h):${cond2?'O':'X'}  ③申請≥返回:${cond3?'O':'X'}  → ${pass?'通過':'不通過'}`);
+      let skipReason = '';
+      if (!cond1) skipReason = `外出 ${row.outTime.slice(-5)} > 09:00，可能請假`;
+      else if (!cond2) skipReason = `工時 ${diffHrs.toFixed(1)}h 未達 9h`;
+      else if (!cond3) skipReason = `申請時間早於返回時間`;
 
-      results.push({ ...row, pass });
+      const pass = cond1 && cond2 && cond3;
 
+      console.log(`  ▸ 外出:${row.outTime.slice(-5)}  返回:${row.returnTime.slice(-5)}  工時:${diffHrs.toFixed(1)}h`);
       if (pass) {
+        console.log(`    → ✅ 通過`);
         await page.evaluate((idx) => {
           const cb = document.querySelectorAll('table tbody tr')[idx]
             ?.querySelector('input[type="checkbox"]');
           if (cb && !cb.checked) cb.click();
         }, row.index);
         passCount++;
+      } else {
+        console.log(`    → ⏸ 先不簽（${skipReason}）`);
+        skipCount++;
       }
     }
 
     if (passCount > 0) {
       await page.click('button:has-text("簽核通過")');
       await page.waitForTimeout(2000);
-      console.log(`\n✅ 外出簽核完成：${passCount} 筆通過`);
-    } else {
-      console.log('\n✅ 本次無符合條件的外出申請。');
     }
 
-    const skipCount = results.filter(r => !r.pass).length;
-    console.log(`   通過 ${passCount} 筆 / 略過 ${skipCount} 筆`);
+    console.log(`\n完成：通過 ${passCount} 筆 / 先不簽 ${skipCount} 筆`);
 
   } catch (err) {
     console.error('\n❌ 發生錯誤：', err.message);
