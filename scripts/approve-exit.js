@@ -1,7 +1,60 @@
 const { chromium } = require('playwright');
 
+const SHEET_ID = '1rhyBuDczqggPN5obDZTDJGeVSlcHp_suT9yS0776RKk';
+
 function parseDateTime(str) {
   return new Date(str.trim().replace(/\s+/g, ' ').replace(' ', 'T'));
+}
+
+function parseCSV(text) {
+  return text.split('\n').map(line => {
+    const cells = []; let inQ = false, cur = '';
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { if (inQ && line[i+1] === '"') { cur += '"'; i++; } else inQ = !inQ; }
+      else if (c === ',' && !inQ) { cells.push(cur.trim()); cur = ''; }
+      else cur += c;
+    }
+    cells.push(cur.trim());
+    return cells;
+  });
+}
+
+async function fetchSheetCSV(page, sheetName) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+  const text = await page.evaluate(async (u) => {
+    try {
+      const r = await fetch(u);
+      return r.ok ? await r.text() : '';
+    } catch { return ''; }
+  }, url);
+  if (!text || text.startsWith('<') || text.startsWith('google')) return null;
+  return parseCSV(text);
+}
+
+async function getLeaveHours(page, empName, date) {
+  const dm = date.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (!dm) return 0;
+  const [, yr, mo, dy] = dm.map(Number);
+  const sheetName = `${yr}.${String(mo).padStart(2,'0')}-加班申請`;
+
+  const csv = await fetchSheetCSV(page, sheetName);
+  if (!csv) return 0;
+
+  // 找日期列
+  let dateRowIdx = -1;
+  for (let i = 0; i < csv.length; i++) {
+    const vals = csv[i].map(v => v.trim());
+    const idx1 = vals.indexOf('1');
+    if (idx1 >= 0 && vals[idx1 + 1] === '2') { dateRowIdx = i; break; }
+  }
+  if (dateRowIdx < 0) return 0;
+
+  const colIdx = csv[dateRowIdx].map(v => v.trim()).indexOf(String(dy));
+  if (colIdx < 0) return 0;
+
+  const leaveRow = csv.find(r => r[1]?.trim() === empName && r[2]?.trim() === '請假時數');
+  return parseFloat(leaveRow?.[colIdx]) || 0;
 }
 
 async function main() {
@@ -32,8 +85,7 @@ async function main() {
     await page.fill('input[placeholder="密碼"]', password);
     await page.click('button.login-button');
     await page.waitForURL('**/home', { timeout: 30000 }).catch(async () => {
-      const url = page.url();
-      throw new Error(`登入失敗，停在 ${url}（帳密錯誤或 NuEIP 無回應）`);
+      throw new Error(`登入失敗，停在 ${page.url()}（帳密錯誤或 NuEIP 無回應）`);
     });
     console.log('    登入成功');
 
@@ -58,8 +110,11 @@ async function main() {
           const t = c.innerText.trim();
           return /\d{4}-\d{2}-\d{2}/.test(t) && /\d{2}:\d{2}:\d{2}/.test(t);
         });
+        // 員工姓名：找非空、非日期、非數字的格子
+        const nameCell = texts.find(t => t && !/\d{4}-\d{2}-\d{2}/.test(t) && !/^\d+$/.test(t) && t.length > 0 && t.length < 10);
         return {
           index,
+          name:       nameCell || '',
           outTime:    dtCells[0] || '',
           returnTime: dtCells[1] || '',
           applyTime:  applyCell ? applyCell.innerText.trim().replace(/\s+/g, ' ') : '',
@@ -73,6 +128,7 @@ async function main() {
     }
 
     let passCount = 0;
+    let failCount = 0;
     let skipCount = 0;
 
     for (const row of rows) {
@@ -81,30 +137,50 @@ async function main() {
       const appDT   = parseDateTime(row.applyTime);
       const outMin  = outDT.getHours() * 60 + outDT.getMinutes();
       const diffHrs = (retDT - outDT) / 3600000;
+      const dateStr = row.outTime.slice(0, 10); // YYYY-MM-DD
 
-      const cond1 = outMin <= 9 * 60;    // 外出 <= 09:00
-      const cond2 = diffHrs >= 9;         // 工時 >= 9h
-      const cond3 = appDT >= retDT;       // 申請 >= 返回
+      console.log(`  ▸ ${row.name || '?'} | 外出:${row.outTime.slice(-5)}  返回:${row.returnTime.slice(-5)}  工時:${diffHrs.toFixed(1)}h`);
 
-      let skipReason = '';
-      if (!cond1) skipReason = `外出 ${row.outTime.slice(-5)} > 09:00，可能請假`;
-      else if (!cond2) skipReason = `工時 ${diffHrs.toFixed(1)}h 未達 9h`;
-      else if (!cond3) skipReason = `申請時間早於返回時間`;
+      // 條件①：外出 <= 09:00
+      if (outMin > 9 * 60) {
+        console.log(`    → ⏸ 先不簽（外出 ${row.outTime.slice(-5)} > 09:00，可能請假）`);
+        skipCount++;
+        continue;
+      }
 
-      const pass = cond1 && cond2 && cond3;
+      // 條件③：申請時間 >= 返回時間
+      if (appDT < retDT) {
+        console.log(`    → ⏸ 先不簽（申請時間早於返回時間）`);
+        skipCount++;
+        continue;
+      }
 
-      console.log(`  ▸ 外出:${row.outTime.slice(-5)}  返回:${row.returnTime.slice(-5)}  工時:${diffHrs.toFixed(1)}h`);
-      if (pass) {
+      // 條件②：工時 >= 9h（直接通過）
+      if (diffHrs >= 9) {
         console.log(`    → ✅ 通過`);
         await page.evaluate((idx) => {
-          const cb = document.querySelectorAll('table tbody tr')[idx]
-            ?.querySelector('input[type="checkbox"]');
+          const cb = document.querySelectorAll('table tbody tr')[idx]?.querySelector('input[type="checkbox"]');
+          if (cb && !cb.checked) cb.click();
+        }, row.index);
+        passCount++;
+        continue;
+      }
+
+      // 工時不足：查 Google Sheets 請假時數補足
+      const leaveHours = await getLeaveHours(page, row.name, dateStr);
+      const totalHrs   = diffHrs + leaveHours;
+      console.log(`    工時 ${diffHrs.toFixed(1)}h + 請假 ${leaveHours}h = ${totalHrs.toFixed(1)}h`);
+
+      if (totalHrs >= 9) {
+        console.log(`    → ✅ 通過（含請假合計 ${totalHrs.toFixed(1)}h ≥ 9h）`);
+        await page.evaluate((idx) => {
+          const cb = document.querySelectorAll('table tbody tr')[idx]?.querySelector('input[type="checkbox"]');
           if (cb && !cb.checked) cb.click();
         }, row.index);
         passCount++;
       } else {
-        console.log(`    → ⏸ 先不簽（${skipReason}）`);
-        skipCount++;
+        console.log(`    → ❌ 不通過（合計 ${totalHrs.toFixed(1)}h < 9h）`);
+        failCount++;
       }
     }
 
@@ -113,7 +189,7 @@ async function main() {
       await page.waitForTimeout(2000);
     }
 
-    console.log(`\n完成：通過 ${passCount} 筆 / 先不簽 ${skipCount} 筆`);
+    console.log(`\n完成：通過 ${passCount} 筆 / 不通過 ${failCount} 筆 / 先不簽 ${skipCount} 筆`);
 
   } catch (err) {
     console.error('\n❌ 發生錯誤：', err.message);
