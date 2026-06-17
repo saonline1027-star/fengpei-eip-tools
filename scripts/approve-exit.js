@@ -20,15 +20,33 @@ function parseCSV(text) {
   });
 }
 
+async function getSheetGid(page, sheetName) {
+  const url = `https://spreadsheets.google.com/feeds/worksheets/${SHEET_ID}/public/basic?alt=json`;
+  const data = await page.evaluate(async (u) => {
+    try {
+      const r = await fetch(u);
+      return r.ok ? await r.json() : null;
+    } catch { return null; }
+  }, url);
+  if (!data) return null;
+  const entry = (data.feed?.entry || []).find(e => e.title?.$t === sheetName);
+  if (!entry) return null;
+  const id = entry.id?.$t || '';
+  const match = id.match(/\/([^\/]+)$/);
+  return match ? match[1] : null;
+}
+
 async function fetchSheetCSV(page, sheetName) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+  const gid = await getSheetGid(page, sheetName);
+  if (!gid) return null;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
   const text = await page.evaluate(async (u) => {
     try {
       const r = await fetch(u);
       return r.ok ? await r.text() : '';
     } catch { return ''; }
   }, url);
-  if (!text || text.startsWith('<') || text.startsWith('google')) return null;
+  if (!text || text.startsWith('<')) return null;
   return parseCSV(text);
 }
 
