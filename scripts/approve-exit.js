@@ -51,18 +51,8 @@ async function getLeaveHours(page, empName, date) {
   const csv = await fetchSheetCSV(page, sheetName);
   if (!csv) return 0;
 
-  // 找日期列
-  let dateRowIdx = -1;
-  for (let i = 0; i < csv.length; i++) {
-    const vals = csv[i].map(v => v.trim());
-    const idx1 = vals.indexOf('1');
-    if (idx1 >= 0 && vals[idx1 + 1] === '2') { dateRowIdx = i; break; }
-  }
-  if (dateRowIdx < 0) return 0;
-
-  const colIdx = csv[dateRowIdx].map(v => v.trim()).indexOf(String(dy));
-  if (colIdx < 0) return 0;
-
+  // 直接用日期計算欄位（D欄=第1天=index 3，第 d 天=index d+2）
+  const colIdx = dy + 2;
   const leaveRow = csv.find(r => r[1]?.trim() === empName && r[2]?.trim() === '請假時數');
   return parseFloat(leaveRow?.[colIdx]) || 0;
 }

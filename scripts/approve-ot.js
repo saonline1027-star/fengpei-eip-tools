@@ -170,66 +170,51 @@ async function main() {
         continue;
       }
 
-      // 找日期列：找「1」緊接著「2」的那列
-      let dateRowIdx = -1;
-      for (let i = 0; i < csv.length; i++) {
-        const row = csv[i];
-        const vals = row.map(v => v.trim());
-        const idx1 = vals.indexOf('1');
-        if (idx1 >= 0 && vals[idx1 + 1] === '2') {
-          dateRowIdx = i;
-          break;
-        }
-      }
+      // 直接用日期計算欄位（D欄=第1天=index 3，第 d 天=index d+2）
+      const daysInMonth = new Date(yr, mo, 0).getDate();
+      const colIdx      = dy + 2;
+      const totalColIdx = daysInMonth + 3; // 總計欄：第31/30天之後的下一欄
 
-      if (dateRowIdx < 0) {
-        console.log(`    [debug] CSV 共 ${csv.length} 列 × ${csv[0]?.length || 0} 欄，有內容的列：`);
-        csv.forEach((r, i) => {
-          const nonEmpty = r.map((v, j) => v.trim() ? `[${j}]=${v.trim()}` : '').filter(Boolean);
-          if (nonEmpty.length) console.log(`      row${i}: ${nonEmpty.join('  ')}`);
-        });
-        console.log(`    → ⏸ 先不簽（找不到日期列，請確認試算表格式）`);
-        skipItems.push({ ...item, reason: '找不到日期列' });
-        continue;
-      }
-
-      const dateRow = csv[dateRowIdx];
-      const colIdx  = dateRow.indexOf(String(dy));
-
-      if (colIdx < 0) {
-        console.log(`    → ⏸ 先不簽（找不到第 ${dy} 日欄位）`);
-        skipItems.push({ ...item, reason: `找不到第 ${dy} 日欄位` });
-        continue;
-      }
-
-      // 國定假日檢查
-      const holidayNote = (csv[dateRowIdx + 2] || [])[colIdx] || '';
-      if (holidayNote.trim()) {
-        console.log(`    → ⏸ 先不簽（國定假日：${holidayNote.trim()}）`);
-        skipItems.push({ ...item, reason: `國定假日（${holidayNote.trim()}）` });
-        continue;
-      }
-
-      // 比對員工時數
-      const empRow = csv.find(r => r[1]?.trim() === item.name && r[2]?.trim() === '加班時數');
-      if (!empRow) {
+      const empOTRow = csv.find(r => r[1]?.trim() === item.name && r[2]?.trim() === '加班時數');
+      if (!empOTRow) {
         console.log(`    → ⏸ 先不簽（試算表找不到 ${item.name}）`);
         skipItems.push({ ...item, reason: `試算表找不到 ${item.name}` });
         continue;
       }
 
-      const sheetHours = parseFloat(empRow[colIdx]) || 0;
-      console.log(`    試算表: ${sheetHours}H，NuEIP: ${nueipHours}H`);
+      const dayValueRaw = (empOTRow[colIdx] || '').trim();
+      const dayHours    = parseFloat(dayValueRaw) || 0;
+      const totalHours  = parseFloat(empOTRow[totalColIdx]) || 0;
+      console.log(`    試算表：當日=${dayValueRaw || '(空)'}  月累計=${totalHours}H，NuEIP=${nueipHours}H`);
 
-      if (sheetHours <= 0) {
-        console.log(`    → ❌ 不通過（試算表當日無填寫）`);
-        failItems.push({ ...item, nueipHours, sheetHours, reason: '試算表當日無填寫' });
-      } else if (nueipHours <= sheetHours) {
-        console.log(`    → ✅ 通過（NuEIP ${nueipHours}H ≤ 表單 ${sheetHours}H）`);
-        passItems.push({ ...item, nueipHours, sheetHours });
+      if (dayValueRaw && dayHours > 0) {
+        // 有當日數值，直接比較
+        if (nueipHours <= dayHours) {
+          console.log(`    → ✅ 通過（NuEIP ${nueipHours}H ≤ 表單當日 ${dayHours}H）`);
+          passItems.push({ ...item, nueipHours, sheetHours: dayHours });
+        } else {
+          console.log(`    → ❌ 不通過（NuEIP ${nueipHours}H > 表單當日 ${dayHours}H）`);
+          failItems.push({ ...item, nueipHours, sheetHours: dayHours, reason: `NuEIP ${nueipHours}H > 表單 ${dayHours}H` });
+        }
       } else {
-        console.log(`    → ❌ 不通過（NuEIP ${nueipHours}H > 表單 ${sheetHours}H）`);
-        failItems.push({ ...item, nueipHours, sheetHours, reason: `NuEIP ${nueipHours}H > 表單 ${sheetHours}H` });
+        // 當日數值讀不到（公式無法匯出），改用月累計 + 誤餐餐費確認
+        const empMealRow = csv.find(r => r[1]?.trim() === item.name && r[2]?.trim() === '誤餐餐費');
+        const hasMeal    = (empMealRow?.[colIdx] || '').trim().toUpperCase() === 'TRUE';
+        console.log(`    當日數值不可讀，改用月累計+誤餐確認（誤餐=${hasMeal}）`);
+
+        if (totalHours <= 0) {
+          console.log(`    → ❌ 不通過（月累計為 0H，請確認試算表）`);
+          failItems.push({ ...item, nueipHours, sheetHours: 0, reason: '月累計為 0H' });
+        } else if (!hasMeal) {
+          console.log(`    → ⏸ 先不簽（當日無誤餐記錄，請人工確認）`);
+          skipItems.push({ ...item, reason: '當日無誤餐記錄' });
+        } else if (nueipHours <= totalHours) {
+          console.log(`    → ✅ 通過（月累計 ${totalHours}H ≥ NuEIP ${nueipHours}H 且當日有誤餐）`);
+          passItems.push({ ...item, nueipHours, sheetHours: totalHours });
+        } else {
+          console.log(`    → ❌ 不通過（NuEIP ${nueipHours}H > 月累計 ${totalHours}H）`);
+          failItems.push({ ...item, nueipHours, sheetHours: totalHours, reason: `超過月累計` });
+        }
       }
     }
 
