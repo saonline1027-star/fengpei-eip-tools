@@ -30,18 +30,28 @@ on:
         description: '說明（可空白）'
         required: false
         default: ''
+      delay_minutes:
+        description: '延遲幾分鐘後執行（0 = 立即）'
+        required: false
+        default: '0'
 
 jobs:
   run:
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.60.0-jammy
-    timeout-minutes: 5
+    timeout-minutes: 130
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Mask password
         run: echo "::add-mask::${{ inputs.password }}"
+
+      - name: 延遲等待
+        if: ${{ inputs.delay_minutes != '0' }}
+        run: |
+          echo "⏳ 等待 ${{ inputs.delay_minutes }} 分鐘後執行..."
+          sleep $(( ${{ inputs.delay_minutes }} * 60 ))
 
       - name: Install dependencies
         run: npm install --omit=dev
