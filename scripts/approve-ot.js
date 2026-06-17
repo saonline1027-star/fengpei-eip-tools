@@ -1,6 +1,23 @@
 const { chromium } = require('playwright');
 
-const SHEET_ID = '1rhyBuDczqggPN5obDZTDJGeVSlcHp_suT9yS0776RKk';
+const SHEET_ID     = '1rhyBuDczqggPN5obDZTDJGeVSlcHp_suT9yS0776RKk';
+const SHEET_OFFSET = 7; // CSV row index + 7 = actual sheet row number
+
+function numberToColLetter(n) {
+  let r = '';
+  while (n > 0) { n--; r = String.fromCharCode(65 + (n % 26)) + r; n = Math.floor(n / 26); }
+  return r;
+}
+
+async function fetchCellValue(page, sheetName, cellRef) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&range=${cellRef}:${cellRef}`;
+  const result = await page.evaluate(async (u) => {
+    try { const r = await fetch(u); return r.ok ? await r.text() : null; }
+    catch { return null; }
+  }, url);
+  if (!result || result.startsWith('<')) return null;
+  return result.trim().replace(/^"|"$/g, '');
+}
 
 function parseHM(str) {
   const m = (str || '').match(/(\d{1,2}):(\d{2})$/);
@@ -170,29 +187,28 @@ async function main() {
         continue;
       }
 
-      // 總計欄：day 1 = index 3，day N = index N+2，total = index N+3
-      const daysInMonth = new Date(yr, mo, 0).getDate();
-      const totalColIdx = daysInMonth + 3;
-
-      const empOTRow = csv.find(r => r[1]?.trim() === item.name && r[2]?.trim() === '加班時數');
-      if (!empOTRow) {
+      // 找員工的 CSV 列位置 → 換算實際 sheet 列號 → 直接抓該格
+      const csvRowIdx = csv.findIndex(r => r[1]?.trim() === item.name && r[2]?.trim() === '加班時數');
+      if (csvRowIdx < 0) {
         console.log(`    → ⏸ 先不簽（試算表找不到 ${item.name}）`);
         skipItems.push({ ...item, reason: `試算表找不到 ${item.name}` });
         continue;
       }
+      const sheetRow  = csvRowIdx + SHEET_OFFSET;
+      const colLetter = numberToColLetter(dy + 3); // day 1 = col D = col 4
+      const cellValue = await fetchCellValue(page, sheetName, `${colLetter}${sheetRow}`);
+      const sheetHours = parseFloat(cellValue) || 0;
+      console.log(`    試算表 ${colLetter}${sheetRow}=${cellValue || '(空)'}，NuEIP=${nueipHours}H`);
 
-      const sheetTotal = parseFloat(empOTRow[totalColIdx]) || 0;
-      console.log(`    試算表時數=${sheetTotal}H，NuEIP=${nueipHours}H`);
-
-      if (sheetTotal <= 0) {
-        console.log(`    → ❌ 不通過（試算表本月無填寫）`);
-        failItems.push({ ...item, nueipHours, sheetHours: 0, reason: '試算表本月無填寫' });
-      } else if (nueipHours <= sheetTotal) {
-        console.log(`    → ✅ 通過（NuEIP ${nueipHours}H ≤ 表單 ${sheetTotal}H）`);
-        passItems.push({ ...item, nueipHours, sheetHours: sheetTotal });
+      if (!cellValue || sheetHours <= 0) {
+        console.log(`    → ❌ 不通過（試算表當日無填寫）`);
+        failItems.push({ ...item, nueipHours, sheetHours: 0, reason: '試算表當日無填寫' });
+      } else if (nueipHours <= sheetHours) {
+        console.log(`    → ✅ 通過（NuEIP ${nueipHours}H ≤ 表單 ${sheetHours}H）`);
+        passItems.push({ ...item, nueipHours, sheetHours });
       } else {
-        console.log(`    → ❌ 不通過（NuEIP ${nueipHours}H > 表單 ${sheetTotal}H）`);
-        failItems.push({ ...item, nueipHours, sheetHours: sheetTotal, reason: `NuEIP ${nueipHours}H > 表單 ${sheetTotal}H` });
+        console.log(`    → ❌ 不通過（NuEIP ${nueipHours}H > 表單 ${sheetHours}H）`);
+        failItems.push({ ...item, nueipHours, sheetHours, reason: `NuEIP ${nueipHours}H > 表單 ${sheetHours}H` });
       }
     }
 
