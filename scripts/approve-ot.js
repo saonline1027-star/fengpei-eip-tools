@@ -26,16 +26,38 @@ function parseCSV(text) {
   });
 }
 
+// 用 feeds API 動態查 GID（公開試算表不需 auth）
+async function getSheetGid(page, sheetName) {
+  const url = `https://spreadsheets.google.com/feeds/worksheets/${SHEET_ID}/public/basic?alt=json`;
+  const data = await page.evaluate(async (u) => {
+    try {
+      const r = await fetch(u);
+      return r.ok ? await r.json() : null;
+    } catch { return null; }
+  }, url);
+  if (!data) return null;
+  const entry = (data.feed?.entry || []).find(e => e.title?.$t === sheetName);
+  if (!entry) return null;
+  // GID 在 id 的最後一段：.../worksheets/SHEET_ID/public/worksheets/GID
+  const id = entry.id?.$t || '';
+  const match = id.match(/\/([^\/]+)$/);
+  return match ? match[1] : null;
+}
+
 async function fetchSheetCSV(page, sheetName) {
-  // 用 sheet 名稱直接抓，不需要 GID，換月自動適用
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+  const gid = await getSheetGid(page, sheetName);
+  if (!gid) {
+    console.log(`    [debug] 找不到 sheet "${sheetName}" 的 GID`);
+    return null;
+  }
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
   const text = await page.evaluate(async (u) => {
     try {
       const r = await fetch(u);
       return r.ok ? await r.text() : '';
     } catch { return ''; }
   }, url);
-  if (!text || text.startsWith('<') || text.startsWith('google')) return null;
+  if (!text || text.startsWith('<')) return null;
   return parseCSV(text);
 }
 
