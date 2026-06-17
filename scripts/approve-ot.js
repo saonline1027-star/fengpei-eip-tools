@@ -27,7 +27,7 @@ function parseCSV(text) {
 }
 
 async function fetchSheetCSV(page, sheetName) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&range=A1:AJ60`;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&range=A:AJ`;
   const result = await page.evaluate(async (u) => {
     try {
       const r = await fetch(u);
@@ -183,14 +183,13 @@ async function main() {
       }
 
       if (dateRowIdx < 0) {
-        // debug：印前 6 列讓我們看結構（顯示所有欄）
-        console.log(`    [debug] CSV 前 6 列（共 ${csv[0]?.length} 欄）：`);
-        csv.slice(0, 6).forEach((r, i) => {
-          const nonEmpty = r.map((v,j) => v.trim() ? `[${j}]=${v.trim()}` : '').filter(Boolean);
-          console.log(`      row${i}: ${nonEmpty.join('  ') || '(全空)'}`);
+        console.log(`    [debug] CSV 共 ${csv.length} 列 × ${csv[0]?.length || 0} 欄，有內容的列：`);
+        csv.forEach((r, i) => {
+          const nonEmpty = r.map((v, j) => v.trim() ? `[${j}]=${v.trim()}` : '').filter(Boolean);
+          if (nonEmpty.length) console.log(`      row${i}: ${nonEmpty.join('  ')}`);
         });
-        console.log(`    → ❌ 不通過（找不到日期列）`);
-        failItems.push({ ...item, reason: '試算表格式異常，找不到日期列' });
+        console.log(`    → ⏸ 先不簽（找不到日期列，請確認試算表格式）`);
+        skipItems.push({ ...item, reason: '找不到日期列' });
         continue;
       }
 

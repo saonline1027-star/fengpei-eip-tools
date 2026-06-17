@@ -21,7 +21,7 @@ function parseCSV(text) {
 }
 
 async function fetchSheetCSV(page, sheetName) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&range=A1:AJ60`;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&range=A:AJ`;
   const result = await page.evaluate(async (u) => {
     try {
       const r = await fetch(u);
