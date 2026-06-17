@@ -174,9 +174,12 @@ async function main() {
       }
 
       if (dateRowIdx < 0) {
-        // debug：印前 5 列讓我們看結構
-        console.log(`    [debug] CSV 前 5 列：`);
-        csv.slice(0, 5).forEach((r, i) => console.log(`      [${i}] ${JSON.stringify(r.slice(0,8))}`));
+        // debug：印前 6 列讓我們看結構（顯示所有欄）
+        console.log(`    [debug] CSV 前 6 列（共 ${csv[0]?.length} 欄）：`);
+        csv.slice(0, 6).forEach((r, i) => {
+          const nonEmpty = r.map((v,j) => v.trim() ? `[${j}]=${v.trim()}` : '').filter(Boolean);
+          console.log(`      row${i}: ${nonEmpty.join('  ') || '(全空)'}`);
+        });
         console.log(`    → ❌ 不通過（找不到日期列）`);
         failItems.push({ ...item, reason: '試算表格式異常，找不到日期列' });
         continue;
