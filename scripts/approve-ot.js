@@ -29,18 +29,20 @@ function parseCSV(text) {
 // 用 feeds API 動態查 GID（公開試算表不需 auth）
 async function getSheetGid(page, sheetName) {
   const url = `https://spreadsheets.google.com/feeds/worksheets/${SHEET_ID}/public/basic?alt=json`;
-  const data = await page.evaluate(async (u) => {
+  const result = await page.evaluate(async (u) => {
     try {
       const r = await fetch(u);
-      return r.ok ? await r.json() : null;
-    } catch { return null; }
+      if (!r.ok) return { error: `HTTP ${r.status}` };
+      const d = await r.json();
+      return { entries: (d.feed?.entry || []).map(e => ({ title: e.title?.$t, id: e.id?.$t })) };
+    } catch (e) { return { error: e.message }; }
   }, url);
-  if (!data) return null;
-  const entry = (data.feed?.entry || []).find(e => e.title?.$t === sheetName);
+
+  if (result.error) { console.log(`    [debug] feeds API 錯誤：${result.error}`); return null; }
+  console.log(`    [debug] 可用 sheets：${JSON.stringify(result.entries.map(e => e.title))}`);
+  const entry = result.entries.find(e => e.title === sheetName);
   if (!entry) return null;
-  // GID 在 id 的最後一段：.../worksheets/SHEET_ID/public/worksheets/GID
-  const id = entry.id?.$t || '';
-  const match = id.match(/\/([^\/]+)$/);
+  const match = entry.id.match(/\/([^\/]+)$/);
   return match ? match[1] : null;
 }
 
