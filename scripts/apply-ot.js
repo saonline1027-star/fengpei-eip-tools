@@ -87,6 +87,9 @@ async function main() {
     await page.waitForTimeout(1000);
 
     // 用文字比對選加班細項，避免 value ID 因網站更新而失效
+    const modalHtml = await page.locator('#myModal').innerHTML().catch(() => '');
+    console.log('    modal HTML：', modalHtml.slice(0, 3000));
+
     const vtypeOptions = await page.evaluate(() => {
       const sel = document.querySelector('#myModal select[name="v_type"]');
       if (!sel) return [];
