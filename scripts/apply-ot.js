@@ -94,7 +94,20 @@ async function main() {
     await page.selectOption('#myModal select[name="min_end"]', endTime.min);
     await page.waitForTimeout(1000);
 
-    await page.selectOption('#myModal select[name="v_type"]', typeInfo.val);
+    // 先印出所有選項，方便日後 debug
+    const vtypeOptions = await page.evaluate(() => {
+      const sel = document.querySelector('#myModal select[name="v_type"]');
+      if (!sel) return [];
+      return Array.from(sel.options).map(o => ({ value: o.value, label: o.text.trim() }));
+    });
+    console.log('    可選類型：', JSON.stringify(vtypeOptions));
+
+    // 優先用文字比對，避免 value ID 過期
+    const matchedOption = vtypeOptions.find(o => o.label.includes(typeInfo.label));
+    if (!matchedOption) {
+      throw new Error(`找不到加班類型「${typeInfo.label}」，可用選項：${vtypeOptions.map(o => o.label).join('、')}`);
+    }
+    await page.selectOption('#myModal select[name="v_type"]', matchedOption.value);
     await page.waitForTimeout(300);
 
     if (otReason) {
