@@ -1,12 +1,12 @@
 const { chromium } = require('playwright');
 
 const TYPE_MAP = {
-  '1': { val: '484227', label: '平日加班換加班費' },
-  '2': { val: '496019', label: '平日加班換補休' },
-  '3': { val: '484263', label: '休息日加班換加班費' },
-  '4': { val: '559988', label: '休息日加班換補休' },
-  '5': { val: '537680', label: '國定假日換加班費' },
-  '6': { val: '766247', label: '國定假日加班換補休' },
+  '1': { label: '平日加班換加班費' },
+  '2': { label: '平日加班換補休' },
+  '3': { label: '休息日加班換加班費' },
+  '4': { label: '休息日加班換補休' },
+  '5': { label: '國定假日換加班費' },
+  '6': { label: '國定假日加班換補休' },
 };
 
 function parseTime(str) {
@@ -58,15 +58,7 @@ async function main() {
     await page.fill('input[placeholder="員工編號"]', username);
     await page.fill('input[placeholder="密碼"]', password);
     await page.click('button.login-button');
-    try {
-      await page.waitForURL('**/home', { timeout: 15000 });
-    } catch (e) {
-      await page.screenshot({ path: 'login-failed.png', fullPage: true });
-      const bodyText = await page.locator('body').innerText().catch(() => '');
-      console.error('    登入失敗截圖已存：login-failed.png');
-      console.error('    頁面文字（前 500 字）：', bodyText.slice(0, 500));
-      throw e;
-    }
+    await page.waitForURL('**/home', { timeout: 15000 });
     console.log('    登入成功');
 
     console.log('[2/3] 前往加班申請...');
@@ -80,8 +72,7 @@ async function main() {
 
     console.log('[2/3] 選加班類型...');
     await page.selectOption('#myModal select[name="o_type"]', '1');
-    await page.dispatchEvent('#myModal select[name="o_type"]', 'change');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
 
     console.log('[3/3] 填寫時間與類型...');
     await page.fill('#s_date', otDate);
@@ -93,22 +84,19 @@ async function main() {
     await page.dispatchEvent('#e_date', 'change');
     await page.selectOption('#myModal select[name="hr_end"]', endTime.hr);
     await page.selectOption('#myModal select[name="min_end"]', endTime.min);
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(1000);
 
-    // 日期填完後等 v_type 選項載入
+    // 用文字比對選加班細項，避免 value ID 因網站更新而失效
     const vtypeOptions = await page.evaluate(() => {
       const sel = document.querySelector('#myModal select[name="v_type"]');
       if (!sel) return [];
       return Array.from(sel.options).map(o => ({ value: o.value, label: o.text.trim() }));
     });
-    console.log('    可選類型：', JSON.stringify(vtypeOptions));
-
-    // 優先用文字比對，避免 value ID 過期
-    const matchedOption = vtypeOptions.find(o => o.label.includes(typeInfo.label));
-    if (!matchedOption) {
-      throw new Error(`找不到加班類型「${typeInfo.label}」，可用選項：${vtypeOptions.map(o => o.label).join('、')}`);
+    const matched = vtypeOptions.find(o => o.label.includes(typeInfo.label));
+    if (!matched) {
+      throw new Error(`找不到「${typeInfo.label}」，可用選項：${vtypeOptions.map(o => o.label).join('、')}`);
     }
-    await page.selectOption('#myModal select[name="v_type"]', matchedOption.value);
+    await page.selectOption('#myModal select[name="v_type"]', matched.value);
     await page.waitForTimeout(300);
 
     if (otReason) {
