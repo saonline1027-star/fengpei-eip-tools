@@ -72,7 +72,18 @@ async function main() {
 
     console.log('[2/3] 選加班類型...');
     await page.selectOption('#myModal select[name="o_type"]', '1');
+    await page.waitForTimeout(500);
+
+    // 選自己的員工（TLayer），選完按 #insert_member，日期欄和 v_type 才會出現
+    if (!nueipSn) throw new Error('缺少 EIP_NUEIP_SN，請填入你的 NuEIP SN（189418）');
+    await page.waitForFunction(
+      () => (document.querySelector('#myModal select[name="TLayer"]')?.options?.length ?? 0) > 1,
+      { timeout: 8000 }
+    );
+    await page.selectOption('#myModal select[name="TLayer"]', nueipSn);
     await page.waitForTimeout(300);
+    await page.evaluate(() => document.querySelector('#insert_member').click());
+    await page.waitForTimeout(800);
 
     console.log('[3/3] 填寫時間與類型...');
     await page.fill('#s_date', otDate);
@@ -84,12 +95,13 @@ async function main() {
     await page.dispatchEvent('#e_date', 'change');
     await page.selectOption('#myModal select[name="hr_end"]', endTime.hr);
     await page.selectOption('#myModal select[name="min_end"]', endTime.min);
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1200);
 
-    // 用文字比對選加班細項，避免 value ID 因網站更新而失效
-    const modalHtml = await page.locator('#myModal').innerHTML().catch(() => '');
-    console.log('    modal HTML：', modalHtml.slice(0, 3000));
-
+    // v_type 用文字比對，避免 value ID 因網站更新失效
+    await page.waitForFunction(
+      () => (document.querySelector('#myModal select[name="v_type"]')?.options?.length ?? 0) > 1,
+      { timeout: 8000 }
+    ).catch(() => {});
     const vtypeOptions = await page.evaluate(() => {
       const sel = document.querySelector('#myModal select[name="v_type"]');
       if (!sel) return [];
