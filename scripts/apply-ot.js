@@ -80,7 +80,11 @@ async function main() {
 
     console.log('[2/3] 選加班類型...');
     await page.selectOption('#myModal select[name="o_type"]', '1');
-    await page.waitForTimeout(300);
+    // 等 v_type 選項動態載入完（不只有預設的「請選擇」）
+    await page.waitForFunction(() => {
+      const sel = document.querySelector('#myModal select[name="v_type"]');
+      return sel && sel.options.length > 1;
+    }, { timeout: 8000 });
 
     console.log('[3/3] 填寫時間與類型...');
     await page.fill('#s_date', otDate);
