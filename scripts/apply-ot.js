@@ -58,7 +58,15 @@ async function main() {
     await page.fill('input[placeholder="員工編號"]', username);
     await page.fill('input[placeholder="密碼"]', password);
     await page.click('button.login-button');
-    await page.waitForURL('**/home', { timeout: 15000 });
+    try {
+      await page.waitForURL('**/home', { timeout: 15000 });
+    } catch (e) {
+      await page.screenshot({ path: 'login-failed.png', fullPage: true });
+      const bodyText = await page.locator('body').innerText().catch(() => '');
+      console.error('    登入失敗截圖已存：login-failed.png');
+      console.error('    頁面文字（前 500 字）：', bodyText.slice(0, 500));
+      throw e;
+    }
     console.log('    登入成功');
 
     console.log('[2/3] 前往加班申請...');

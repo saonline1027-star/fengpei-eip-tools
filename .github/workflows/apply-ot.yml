@@ -56,7 +56,7 @@ jobs:
       - name: Install dependencies
         run: npm install --omit=dev
 
-      - name: 執行申請加班
+      - name: 執行申請加班（含截圖診斷）
         env:
           EIP_COMPANY: retech
           EIP_USERNAME: ${{ inputs.username }}
@@ -71,3 +71,11 @@ jobs:
           GSHEET_WEBHOOK_URL: ${{ secrets.GSHEET_WEBHOOK_URL }}
           GSHEET_SECRET: ${{ secrets.GSHEET_SECRET }}
         run: node scripts/apply-ot.js
+
+      - name: 上傳失敗截圖
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: login-screenshot
+          path: login-failed.png
+          if-no-files-found: ignore
