@@ -79,33 +79,9 @@ async function main() {
     await page.waitForTimeout(1000);
 
     console.log('[2/3] 選加班類型...');
-    // 印出 o_type 現有選項
-    const otypes = await page.evaluate(() => {
-      const sel = document.querySelector('#myModal select[name="o_type"]');
-      return sel ? Array.from(sel.options).map(o => ({ value: o.value, label: o.text.trim() })) : [];
-    });
-    console.log('    o_type 選項：', JSON.stringify(otypes));
-
     await page.selectOption('#myModal select[name="o_type"]', '1');
     await page.dispatchEvent('#myModal select[name="o_type"]', 'change');
-    await page.waitForTimeout(1000);
-
-    // 印出 v_type 目前狀態
-    const vtypeBefore = await page.evaluate(() => {
-      const sel = document.querySelector('#myModal select[name="v_type"]');
-      return sel ? Array.from(sel.options).map(o => ({ value: o.value, label: o.text.trim() })) : [];
-    });
-    console.log('    v_type 選項（觸發 change 後 1s）：', JSON.stringify(vtypeBefore));
-
-    // 等 v_type 選項動態載入完
-    await page.waitForFunction(() => {
-      const sel = document.querySelector('#myModal select[name="v_type"]');
-      return sel && sel.options.length > 1;
-    }, { timeout: 10000 }).catch(async () => {
-      const html = await page.locator('#myModal').innerHTML().catch(() => '');
-      console.error('    v_type 仍未載入，modal HTML：', html.slice(0, 1000));
-      throw new Error('v_type 選項未出現，請確認 o_type 值是否正確');
-    });
+    await page.waitForTimeout(500);
 
     console.log('[3/3] 填寫時間與類型...');
     await page.fill('#s_date', otDate);
@@ -117,9 +93,9 @@ async function main() {
     await page.dispatchEvent('#e_date', 'change');
     await page.selectOption('#myModal select[name="hr_end"]', endTime.hr);
     await page.selectOption('#myModal select[name="min_end"]', endTime.min);
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1500);
 
-    // 先印出所有選項，方便日後 debug
+    // 日期填完後等 v_type 選項載入
     const vtypeOptions = await page.evaluate(() => {
       const sel = document.querySelector('#myModal select[name="v_type"]');
       if (!sel) return [];
